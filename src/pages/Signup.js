@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 function Signup({ onSignup }) {
@@ -11,6 +11,13 @@ function Signup({ onSignup }) {
   const [netLossLimit, setNetLossLimit] = useState('');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const countries = [
     'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina',
@@ -48,23 +55,23 @@ function Signup({ onSignup }) {
     const percent = (netLossLimit / monthlyIncome) * 100;
     if (percent <= 5) return {
       color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
-      text: "Your spending level is typical of casual players who enjoy online casinos as a form of entertainment, similar to going to the cinema or a night out. Casinos generally see players at this level as recreational users. There is no particular cause for concern at this level, though it is always good practice to keep track of your spending."
+      text: "Your spending level is typical of casual players who enjoy online casinos as a form of entertainment. There is no particular cause for concern at this level."
     };
     if (percent <= 15) return {
       color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd',
-      text: "This spending level is common among regular players who are actively engaged with online casinos. Casinos typically view players in this range as core users and may start offering loyalty rewards or personalised promotions. It is worth reviewing your spending periodically to make sure it stays within your comfort zone."
+      text: "This spending level is common among regular players. It is worth reviewing your spending periodically to make sure it stays within your comfort zone."
     };
     if (percent <= 30) return {
       color: '#d97706', bg: '#fffbeb', border: '#fde68a',
-      text: "At this level you are spending a meaningful portion of your income on gambling. Casinos often classify players in this range as high-value players and may offer VIP treatment, exclusive bonuses and personal account managers. While this level of engagement can be enjoyable, it is worth being mindful of your spending patterns and ensuring gambling remains a positive part of your lifestyle."
+      text: "At this level you are spending a meaningful portion of your income on gambling. Casinos may offer VIP treatment. Be mindful of your spending patterns."
     };
     if (percent <= 50) return {
       color: '#ea580c', bg: '#fff7ed', border: '#fed7aa',
-      text: "This spending level places you in a category that casinos typically classify as VIP or high-roller status. You may receive premium treatment, dedicated support and significant bonus offers. At this level of spend relative to income it is worth taking a moment to consider whether your gambling budget is still comfortable for you financially, and whether setting a stricter monthly limit might give you more peace of mind."
+      text: "This spending level places you in a VIP or high-roller category. Consider whether your gambling budget is still comfortable for you financially."
     };
     return {
       color: '#dc2626', bg: '#fef2f2', border: '#fecaca',
-      text: "Your current spending level is in a range that casinos associate with their most valuable players, often referred to as ultra VIPs or whales. While this may come with premium perks and attention from casinos, spending more than half of your monthly income on gambling is something worth reflecting on. We recommend reviewing your limits and considering whether adjusting your budget would give you a healthier balance."
+      text: "Your spending level exceeds half of your monthly income. We recommend reviewing your limits and considering whether adjusting your budget would give you a healthier balance."
     };
   };
 
@@ -86,43 +93,51 @@ function Signup({ onSignup }) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.leftPanel}>
-        <div style={styles.leftContent}>
-          <h1 style={styles.brandName}>Casiflow</h1>
-          <p style={styles.brandTagline}>The players who win long term are the ones who know their numbers. Start tracking today.</p>
-          <div style={styles.steps}>
-            <div style={styles.step}>
-              <div style={styles.stepNumber}>1</div>
-              <div>
-                <p style={styles.stepTitle}>Create your account</p>
-                <p style={styles.stepDesc}>Always free to use</p>
+      {!isMobile && (
+        <div style={styles.leftPanel}>
+          <div style={styles.leftContent}>
+            <h1 style={styles.brandName}>Casiflow</h1>
+            <p style={styles.brandTagline}>The players who win long term are the ones who know their numbers. Start tracking today.</p>
+            <div style={styles.steps}>
+              <div style={styles.step}>
+                <div style={styles.stepNumber}>1</div>
+                <div>
+                  <p style={styles.stepTitle}>Create your account</p>
+                  <p style={styles.stepDesc}>Always free to use</p>
+                </div>
               </div>
-            </div>
-            <div style={styles.step}>
-              <div style={styles.stepNumber}>2</div>
-              <div>
-                <p style={styles.stepTitle}>Add your casinos</p>
-                <p style={styles.stepDesc}>Connect all your casino accounts in one place</p>
+              <div style={styles.step}>
+                <div style={styles.stepNumber}>2</div>
+                <div>
+                  <p style={styles.stepTitle}>Add your casinos</p>
+                  <p style={styles.stepDesc}>Connect all your casino accounts in one place</p>
+                </div>
               </div>
-            </div>
-            <div style={styles.step}>
-              <div style={styles.stepNumber}>3</div>
-              <div>
-                <p style={styles.stepTitle}>Track and improve</p>
-                <p style={styles.stepDesc}>Get insights and stay in control of your spending</p>
+              <div style={styles.step}>
+                <div style={styles.stepNumber}>3</div>
+                <div>
+                  <p style={styles.stepTitle}>Track and improve</p>
+                  <p style={styles.stepDesc}>Get insights and stay in control of your spending</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div style={styles.rightPanel}>
-        <div style={styles.formCard}>
+      <div style={isMobile ? styles.rightPanelMobile : styles.rightPanel}>
+        <div style={isMobile ? styles.formCardMobile : styles.formCard}>
+          {isMobile && (
+            <div style={styles.mobileHeader}>
+              <h1 style={styles.mobileBrandName}>Casiflow</h1>
+              <p style={styles.mobileBrandTagline}>The players who win long term are the ones who know their numbers.</p>
+            </div>
+          )}
           <h2 style={styles.formTitle}>Create your free account</h2>
           <p style={styles.formSubtitle}>Always free to use — takes less than 2 minutes</p>
           {error && <div style={styles.errorBox}>{error}</div>}
           <form onSubmit={handleSubmit}>
-            <div style={styles.row}>
+            <div style={isMobile ? styles.fieldFull : styles.row}>
               <div style={styles.field}>
                 <label style={styles.label}>Full Name *</label>
                 <input style={styles.input} type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Smith" />
@@ -136,7 +151,7 @@ function Signup({ onSignup }) {
               <label style={styles.label}>Password *</label>
               <input style={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Choose a strong password" />
             </div>
-            <div style={styles.row}>
+            <div style={isMobile ? styles.fieldFull : styles.row}>
               <div style={styles.field}>
                 <label style={styles.label}>Country *</label>
                 <select style={styles.input} value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}>
@@ -156,7 +171,7 @@ function Signup({ onSignup }) {
             <div style={styles.divider} />
             <p style={styles.sectionLabel}>Budget Settings <span style={styles.optional}>(optional but recommended)</span></p>
 
-            <div style={styles.row}>
+            <div style={isMobile ? styles.fieldFull : styles.row}>
               <div style={styles.field}>
                 <label style={styles.label}>Monthly Net Income</label>
                 <input style={styles.input} type="number" value={monthlyIncome} onChange={(e) => setMonthlyIncome(e.target.value)} placeholder="e.g. 3000" />
@@ -208,14 +223,20 @@ const styles = {
   stepTitle: { color: 'white', fontSize: '14px', fontWeight: '600', margin: '0 0 4px 0' },
   stepDesc: { color: 'rgba(255,255,255,0.6)', fontSize: '13px', margin: 0 },
   rightPanel: { flex: 1, backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' },
+  rightPanelMobile: { flex: 1, background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px', minHeight: '100vh' },
   formCard: { backgroundColor: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '560px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' },
-  formTitle: { color: '#0f172a', fontSize: '24px', fontWeight: '800', margin: '0 0 8px 0' },
-  formSubtitle: { color: '#64748b', fontSize: '14px', margin: '0 0 24px 0' },
+  formCardMobile: { backgroundColor: 'white', borderRadius: '20px', padding: '28px 24px', width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)', marginTop: '16px', marginBottom: '16px' },
+  mobileHeader: { textAlign: 'center', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #f1f5f9' },
+  mobileBrandName: { color: '#0ea5e9', fontSize: '28px', fontWeight: '800', margin: '0 0 8px 0', letterSpacing: '-1px' },
+  mobileBrandTagline: { color: '#64748b', fontSize: '13px', lineHeight: '1.5', margin: 0 },
+  formTitle: { color: '#0f172a', fontSize: '22px', fontWeight: '800', margin: '0 0 6px 0' },
+  formSubtitle: { color: '#64748b', fontSize: '14px', margin: '0 0 20px 0' },
   errorBox: { backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', marginBottom: '16px' },
   row: { display: 'flex', gap: '16px' },
+  fieldFull: { display: 'flex', flexDirection: 'column' },
   field: { flex: 1, marginBottom: '16px' },
-  label: { display: 'block', marginBottom: '6px', color: '#374151', fontSize: '13px', fontWeight: '600' },
-  input: { width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', backgroundColor: '#f8fafc', color: '#1e293b' },
+  label: { display: 'block', marginBottom: '6px', color: '#374151', fontSize: '14px', fontWeight: '600' },
+  input: { width: '100%', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '16px', boxSizing: 'border-box', backgroundColor: '#f8fafc', color: '#1e293b' },
   divider: { height: '1px', backgroundColor: '#e2e8f0', margin: '8px 0 16px 0' },
   sectionLabel: { color: '#374151', fontSize: '14px', fontWeight: '600', margin: '0 0 16px 0' },
   optional: { color: '#94a3b8', fontSize: '12px', fontWeight: '400' },
@@ -223,10 +244,10 @@ const styles = {
   profilePercent: { fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' },
   profileText: { fontSize: '13px', lineHeight: '1.6', margin: 0 },
   consentRow: { display: 'flex', alignItems: 'flex-start', gap: '10px', margin: '16px 0' },
-  checkbox: { marginTop: '2px', cursor: 'pointer', width: '16px', height: '16px', flexShrink: 0 },
+  checkbox: { marginTop: '2px', cursor: 'pointer', width: '18px', height: '18px', flexShrink: 0 },
   consentLabel: { color: '#64748b', fontSize: '13px', lineHeight: '1.5', cursor: 'pointer' },
   consentLink: { color: '#0ea5e9', textDecoration: 'none', fontWeight: '600' },
-  button: { width: '100%', padding: '14px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(14,165,233,0.3)' },
+  button: { width: '100%', padding: '16px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(14,165,233,0.3)' },
   switchText: { textAlign: 'center', marginTop: '20px', fontSize: '14px', color: '#64748b' },
   switchLink: { color: '#0ea5e9', textDecoration: 'none', fontWeight: '600' },
 };
