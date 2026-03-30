@@ -212,7 +212,6 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   }, [balanceValues]); // eslint-disable-line
 
   const updateNote = (id, note) => setCasinos(prev => prev.map(c => c.id === id ? { ...c, note } : c));
-  const updateBalance = (id, balance) => setCasinos(prev => prev.map(c => c.id === id ? { ...c, currentBalance: Number(balance) } : c));
   const updateRating = async (id, rating) => {
     setCasinos(prev => prev.map(c => c.id === id ? { ...c, rating } : c));
     await supabase.from('casinos').update({ rating }).eq('id', id);
