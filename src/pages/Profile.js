@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutDashboard, Building2, User, LogOut } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 import Footer from '../components/Footer';
 
-function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
-  const [name, setName] = useState(user.name || '');
-  const [jurisdiction, setJurisdiction] = useState(user.jurisdiction || '');
-  const [currency, setCurrency] = useState(user.currency || '');
-  const [monthlyIncome, setMonthlyIncome] = useState(user.monthlyIncome || '');
-  const [monthlyDepositLimit, setMonthlyDepositLimit] = useState(userSettings?.monthlyDepositLimit || 1000);
-  const [monthlyNetLossLimit, setMonthlyNetLossLimit] = useState(userSettings?.monthlyNetLossLimit || 500);
+function Profile({ user, profile, onLogout, onUpdateProfile }) {
+  const [name, setName] = useState('');
+  const [country, setCountry] = useState('');
+  const [currency, setCurrency] = useState('');
+  const [monthlyIncome, setMonthlyIncome] = useState('');
+  const [monthlyDepositLimit, setMonthlyDepositLimit] = useState('');
+  const [monthlyNetLossLimit, setMonthlyNetLossLimit] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [saved, setSaved] = useState(false);
   const [limitsSaved, setLimitsSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
+  const [error, setError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [activeTab, setActiveTab] = useState('profile');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
@@ -24,12 +27,49 @@ function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const jurisdictions = [
-    'Netherlands', 'United Kingdom', 'Sweden', 'Germany', 'Denmark',
-    'Finland', 'Norway', 'Belgium', 'Spain', 'Italy', 'Other'
+  // Load profile data into form fields when profile is available
+  useEffect(() => {
+    if (profile) {
+      setName(profile.full_name || '');
+      setCountry(profile.country || '');
+      setCurrency(profile.currency || '');
+      setMonthlyIncome(profile.monthly_net_income || '');
+      setMonthlyDepositLimit(profile.monthly_deposit_limit || '');
+      setMonthlyNetLossLimit(profile.monthly_net_loss_limit || '');
+    }
+  }, [profile]);
+
+  const countries = [
+    'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina',
+    'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados',
+    'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan', 'Bolivia', 'Bosnia and Herzegovina',
+    'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cambodia', 'Cameroon',
+    'Canada', 'Cape Verde', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia',
+    'Comoros', 'Congo', 'Costa Rica', 'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Denmark',
+    'Djibouti', 'Dominica', 'Dominican Republic', 'Ecuador', 'Egypt', 'El Salvador',
+    'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France',
+    'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea',
+    'Guinea-Bissau', 'Guyana', 'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia',
+    'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan',
+    'Kenya', 'Kiribati', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia',
+    'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg', 'Madagascar', 'Malawi', 'Malaysia',
+    'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico',
+    'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar',
+    'Namibia', 'Nauru', 'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria',
+    'North Korea', 'North Macedonia', 'Norway', 'Oman', 'Pakistan', 'Palau', 'Panama',
+    'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania',
+    'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines',
+    'Samoa', 'San Marino', 'Sao Tome and Principe', 'Saudi Arabia', 'Senegal', 'Serbia',
+    'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia',
+    'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname',
+    'Sweden', 'Switzerland', 'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Timor-Leste',
+    'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu', 'Uganda',
+    'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan',
+    'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe', 'Other'
   ];
-  const currencies = ['EUR', 'GBP', 'SEK', 'DKK', 'NOK', 'USD'];
-  const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'SEK' ? 'kr' : currency === 'DKK' ? 'kr' : '€';
+
+  const currencies = ['EUR', 'GBP', 'SEK', 'DKK', 'NOK', 'USD', 'AUD', 'CAD', 'CHF', 'JPY', 'Other'];
+  const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
 
   const getSpendingProfile = () => {
     if (!monthlyIncome || !monthlyNetLossLimit) return null;
@@ -56,28 +96,77 @@ function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
     };
   };
 
-  const profile = getSpendingProfile();
+  const spendingProfile = getSpendingProfile();
   const percent = monthlyIncome && monthlyNetLossLimit ? ((monthlyNetLossLimit / monthlyIncome) * 100).toFixed(1) : null;
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
+    setError('');
+    const { data, error: updateError } = await supabase
+      .from('profiles')
+      .update({ full_name: name, country, currency })
+      .eq('id', user.id)
+      .select()
+      .single();
+    if (updateError) {
+      setError('Could not save changes. Please try again.');
+      return;
+    }
+    onUpdateProfile(data);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleLimitsSave = (e) => {
+  const handleLimitsSave = async (e) => {
     e.preventDefault();
-    onUpdateSettings({ monthlyDepositLimit, monthlyNetLossLimit });
+    setError('');
+    const { data, error: updateError } = await supabase
+      .from('profiles')
+      .update({
+        monthly_deposit_limit: monthlyDepositLimit ? Number(monthlyDepositLimit) : null,
+        monthly_net_loss_limit: monthlyNetLossLimit ? Number(monthlyNetLossLimit) : null,
+        monthly_net_income: monthlyIncome ? Number(monthlyIncome) : null,
+      })
+      .eq('id', user.id)
+      .select()
+      .single();
+    if (updateError) {
+      setError('Could not save limits. Please try again.');
+      return;
+    }
+    onUpdateProfile(data);
     setLimitsSaved(true);
     setTimeout(() => setLimitsSaved(false), 2000);
   };
 
-  const handlePasswordSave = (e) => {
+  const handlePasswordSave = async (e) => {
     e.preventDefault();
+    setPasswordError('');
+    if (!newPassword) {
+      setPasswordError('Please enter a new password.');
+      return;
+    }
+    const { error: passwordUpdateError } = await supabase.auth.updateUser({ password: newPassword });
+    if (passwordUpdateError) {
+      setPasswordError('Could not update password. Please try again.');
+      return;
+    }
     setPasswordSaved(true);
     setCurrentPassword('');
     setNewPassword('');
     setTimeout(() => setPasswordSaved(false), 2000);
+  };
+
+  const handleExportCSV = () => {
+    // Placeholder for CSV export functionality
+    alert('CSV export coming soon.');
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm('Are you sure you want to delete your account? This cannot be undone.');
+    if (!confirmed) return;
+    await supabase.auth.signOut();
+    onLogout();
   };
 
   const navItems = [
@@ -128,7 +217,7 @@ function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
             {!isMobile && <h2 style={styles.pageTitle}>Profile</h2>}
             {isMobile && <h2 style={styles.pageTitleMobile}>Profile</h2>}
           </div>
-          <span style={styles.greeting}>Hi, {user.name}</span>
+          <span style={styles.greeting}>Hi, {profile?.full_name || user.email}</span>
         </div>
 
         <div style={isMobile ? styles.contentMobile : styles.content}>
@@ -143,6 +232,8 @@ function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
               </button>
             ))}
           </div>
+
+          {error && <div style={styles.errorBox}>{error}</div>}
 
           {activeTab === 'profile' && (
             <div style={styles.card}>
@@ -162,9 +253,9 @@ function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
                 <div style={isMobile ? styles.fieldFull : styles.row}>
                   <div style={styles.field}>
                     <label style={styles.label}>Country</label>
-                    <select style={styles.input} value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}>
+                    <select style={styles.input} value={country} onChange={(e) => setCountry(e.target.value)}>
                       <option value="">Select country</option>
-                      {jurisdictions.map(j => <option key={j} value={j}>{j}</option>)}
+                      {countries.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div style={styles.field}>
@@ -188,12 +279,12 @@ function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
                 <div style={isMobile ? styles.fieldFull : styles.row}>
                   <div style={styles.field}>
                     <label style={styles.label}>Monthly Deposit Limit ({symbol})</label>
-                    <input style={styles.input} type="number" value={monthlyDepositLimit} onChange={(e) => setMonthlyDepositLimit(Number(e.target.value))} placeholder="e.g. 1000" />
+                    <input style={styles.input} type="number" value={monthlyDepositLimit} onChange={(e) => setMonthlyDepositLimit(e.target.value)} placeholder="e.g. 1000" />
                     <p style={styles.fieldHint}>Maximum you want to deposit across all casinos per month</p>
                   </div>
                   <div style={styles.field}>
                     <label style={styles.label}>Monthly Net Loss Limit ({symbol})</label>
-                    <input style={styles.input} type="number" value={monthlyNetLossLimit} onChange={(e) => setMonthlyNetLossLimit(Number(e.target.value))} placeholder="e.g. 500" />
+                    <input style={styles.input} type="number" value={monthlyNetLossLimit} onChange={(e) => setMonthlyNetLossLimit(e.target.value)} placeholder="e.g. 500" />
                     <p style={styles.fieldHint}>Maximum net loss (deposits - withdrawals - balance) per month</p>
                   </div>
                 </div>
@@ -204,18 +295,18 @@ function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
 
               <h3 style={styles.cardTitle}>Income & Net Loss Limit</h3>
               <p style={styles.cardSubtitle}>Understand your net loss limit as a percentage of your monthly income</p>
-              <form onSubmit={handleSave}>
+              <form onSubmit={handleLimitsSave}>
                 <div style={styles.field}>
                   <label style={styles.label}>Monthly Net Income ({symbol})</label>
                   <input style={styles.input} type="number" value={monthlyIncome} onChange={(e) => setMonthlyIncome(e.target.value)} placeholder="e.g. 3000" />
                 </div>
-                {profile && (
-                  <div style={{ ...styles.profileBox, backgroundColor: profile.bg, border: `1px solid ${profile.border}` }}>
-                    <span style={{ ...styles.profilePercent, color: profile.color }}>{percent}% of monthly income</span>
-                    <p style={{ ...styles.profileText, color: profile.color }}>{profile.text}</p>
+                {spendingProfile && (
+                  <div style={{ ...styles.profileBox, backgroundColor: spendingProfile.bg, border: `1px solid ${spendingProfile.border}` }}>
+                    <span style={{ ...styles.profilePercent, color: spendingProfile.color }}>{percent}% of monthly income</span>
+                    <p style={{ ...styles.profileText, color: spendingProfile.color }}>{spendingProfile.text}</p>
                   </div>
                 )}
-                <button type="submit" style={styles.saveBtn}>{saved ? '✓ Saved!' : 'Save Settings'}</button>
+                <button type="submit" style={styles.saveBtn}>{limitsSaved ? '✓ Saved!' : 'Save Settings'}</button>
               </form>
             </div>
           )}
@@ -224,6 +315,7 @@ function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
             <div style={styles.card}>
               <h3 style={styles.cardTitle}>Change Password</h3>
               <p style={styles.cardSubtitle}>Keep your account secure</p>
+              {passwordError && <div style={styles.errorBox}>{passwordError}</div>}
               <form onSubmit={handlePasswordSave}>
                 <div style={styles.field}>
                   <label style={styles.label}>Current Password</label>
@@ -247,7 +339,7 @@ function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
                   <p style={styles.dataTitle}>Export My Data</p>
                   <p style={styles.dataDesc}>Download all your transaction data as a CSV file. This is your right under GDPR.</p>
                 </div>
-                <button style={styles.exportBtn}>📥 Export CSV</button>
+                <button style={styles.exportBtn} onClick={handleExportCSV}>📥 Export CSV</button>
               </div>
               <div style={styles.divider} />
               <div style={styles.dataRow}>
@@ -255,12 +347,12 @@ function Profile({ user, onLogout, userSettings, onUpdateSettings }) {
                   <p style={styles.dataTitle}>Delete Account</p>
                   <p style={styles.dataDesc}>Permanently delete your account and all associated data. This cannot be undone.</p>
                 </div>
-                <button style={styles.deleteBtn}>🗑 Delete Account</button>
+                <button style={styles.deleteBtn} onClick={handleDeleteAccount}>🗑 Delete Account</button>
               </div>
             </div>
           )}
         </div>
-        <Footer jurisdiction={user.jurisdiction} />
+        <Footer country={profile?.country} />
       </div>
 
       {isMobile && (
@@ -326,6 +418,7 @@ const styles = {
   profilePercent: { fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' },
   profileText: { fontSize: '13px', lineHeight: '1.6', margin: 0 },
   saveBtn: { width: '100%', padding: '14px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' },
+  errorBox: { backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', marginBottom: '16px' },
   dataRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 0', gap: '16px' },
   dataTitle: { color: '#1e293b', fontSize: '14px', fontWeight: '600', margin: '0 0 4px 0' },
   dataDesc: { color: '#64748b', fontSize: '13px', margin: 0 },

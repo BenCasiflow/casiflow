@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
-function Login({ onLogin }) {
+function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -13,13 +16,39 @@ function Login({ onLogin }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+
     if (!email || !password) {
       setError('Please fill in all fields');
       return;
     }
-    onLogin({ email, name: email.split('@')[0] });
+
+    setLoading(true);
+
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (signInError) {
+      setError('Incorrect email or password. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    // Fetch the player's name immediately and store it in sessionStorage
+    // so the Dashboard can show it instantly without waiting for the profile fetch
+    if (data?.user) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', data.user.id)
+        .single();
+      if (profileData?.full_name) {
+        sessionStorage.setItem('userFirstName', profileData.full_name.split(' ')[0]);
+      }
+    }
+
+    navigate('/dashboard');
   };
 
   return (
@@ -83,7 +112,9 @@ function Login({ onLogin }) {
                 placeholder="Your password"
               />
             </div>
-            <button type="submit" style={styles.button}>Log In</button>
+            <button type="submit" style={styles.button} disabled={loading}>
+              {loading ? 'Logging in...' : 'Log In'}
+            </button>
           </form>
           <p style={styles.switchText}>
             Don't have an account?{' '}

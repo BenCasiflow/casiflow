@@ -1,14 +1,76 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Building2, User, Download, Bell, Search, Star, TrendingUp, TrendingDown, MessageSquare, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, User, Download, Bell, Search, Star, MessageSquare, LogOut, Plus, ChevronDown, ChevronUp, Trash2, Edit2, Check, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
+import { supabase } from '../supabaseClient';
+import AddTransactionModal from '../components/AddTransactionModal';
 import Footer from '../components/Footer';
 
-function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
+function getDateRange(filter) {
+  const now = new Date();
+  const start = new Date();
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  switch (filter) {
+    case 'Last 24hrs':
+      start.setHours(now.getHours() - 24, now.getMinutes(), now.getSeconds(), 0);
+      break;
+    case 'Last Week':
+      start.setDate(now.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+      break;
+    case 'This Month':
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      break;
+    case 'Last Month':
+      start.setMonth(now.getMonth() - 1, 1);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(0);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case 'Last 3 Months':
+      start.setMonth(now.getMonth() - 3);
+      start.setHours(0, 0, 0, 0);
+      break;
+    case 'Last 6 Months':
+      start.setMonth(now.getMonth() - 6);
+      start.setHours(0, 0, 0, 0);
+      break;
+    case 'Last Year':
+      start.setFullYear(now.getFullYear() - 1);
+      start.setHours(0, 0, 0, 0);
+      break;
+    case 'All Time':
+    default:
+      return null;
+  }
+  return { start, end };
+}
+
+function filterByDateRange(transactions, range) {
+  if (!range) return transactions;
+  return transactions.filter(t => {
+    const d = new Date(t.date);
+    return d >= range.start && d <= range.end;
+  });
+}
+
+function calcTotals(transactions) {
+  const deposits = transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + Number(t.amount), 0);
+  const withdrawals = transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + Number(t.amount), 0);
+  const bonuses = transactions.filter(t => t.type === 'bonus').reduce((sum, t) => sum + Number(t.amount), 0);
+  return { deposits, withdrawals, bonuses };
+}
+
+function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   const [casinos, setCasinos] = useState([]);
-  const [monthlyDepositLimit, setMonthlyDepositLimit] = useState(userSettings?.monthlyDepositLimit || 1000);
-  const [monthlyNetLossLimit, setMonthlyNetLossLimit] = useState(userSettings?.monthlyNetLossLimit || 500);
+  const [allTransactions, setAllTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [monthlyDepositLimit, setMonthlyDepositLimit] = useState(0);
+  const [monthlyNetLossLimit, setMonthlyNetLossLimit] = useState(0);
   const [timeFilter, setTimeFilter] = useState('This Month');
+  const [casinoFilters, setCasinoFilters] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [feedback, setFeedback] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -16,6 +78,13 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
   const [showNotification, setShowNotification] = useState(true);
   const [activeNav, setActiveNav] = useState('dashboard');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [expandedCasinos, setExpandedCasinos] = useState({});
+  const [addTransactionCasino, setAddTransactionCasino] = useState(null);
+  const [editingCasinoId, setEditingCasinoId] = useState(null);
+  const [editingCasinoName, setEditingCasinoName] = useState('');
+  const [deletingCasinoId, setDeletingCasinoId] = useState(null);
+
+  const firstName = sessionStorage.getItem('userFirstName') || profile?.full_name?.split(' ')[0] || '';
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -23,23 +92,215 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const currency = user.currency || 'EUR';
+  useEffect(() => {
+    if (profile) {
+      setMonthlyDepositLimit(profile.monthly_deposit_limit || 0);
+      setMonthlyNetLossLimit(profile.monthly_net_loss_limit || 0);
+    }
+  }, [profile]);
+
+  const fetchCasinos = useCallback(async () => {
+    setLoading(true);
+    const { data: casinosData, error: casinosError } = await supabase
+      .from('casinos')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (casinosError || !casinosData || casinosData.length === 0) {
+      setCasinos([]);
+      setAllTransactions([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data: transactionsData } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('date', { ascending: false });
+
+    const { data: gamesData } = await supabase
+      .from('favourite_games')
+      .select('*')
+      .eq('user_id', user.id);
+
+    const transactions = transactionsData || [];
+    setAllTransactions(transactions);
+
+    const enrichedCasinos = casinosData.map(casino => {
+      const casinoTransactions = transactions.filter(t => t.casino_id === casino.id);
+      const casinoGames = (gamesData || []).filter(g => g.casino_id === casino.id);
+
+      const lastTransaction = [...casinoTransactions].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+      const lastActivity = lastTransaction
+        ? new Date(lastTransaction.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        : 'No transactions yet';
+
+      const gameStats = casinoGames.map(g => ({
+        game: g.specific_game || g.game_type,
+        amount: Number(g.amount_wagered) || 0,
+      }));
+
+      const hasOnlyLifetime = casinoTransactions.length > 0 &&
+        casinoTransactions.every(t => t.entry_method === 'lifetime');
+
+      return {
+        id: casino.id,
+        name: casino.casino_name,
+        note: casino.note || '',
+        currentBalance: Number(casino.current_balance) || 0,
+        rating: casino.rating || 0,
+        transactions: casinoTransactions,
+        lastActivity,
+        gameStats,
+        hasOnlyLifetime,
+      };
+    });
+
+    setCasinos(enrichedCasinos);
+
+    const initialFilters = {};
+    casinosData.forEach(c => { initialFilters[c.id] = 'All Time'; });
+    setCasinoFilters(prev => {
+      const merged = { ...initialFilters };
+      Object.keys(prev).forEach(k => { if (merged[k] !== undefined) merged[k] = prev[k]; });
+      return merged;
+    });
+
+    setLoading(false);
+  }, [user.id]);
+
+  useEffect(() => {
+    fetchCasinos();
+  }, [fetchCasinos]);
+
+  useEffect(() => {
+    if (!profile) return;
+    const timer = setTimeout(async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ monthly_deposit_limit: monthlyDepositLimit || null, monthly_net_loss_limit: monthlyNetLossLimit || null })
+        .eq('id', user.id)
+        .select()
+        .single();
+      if (!error && data) onUpdateProfile(data);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [monthlyDepositLimit, monthlyNetLossLimit]); // eslint-disable-line
+
+  const noteValues = casinos.map(c => c.note).join(',');
+  useEffect(() => {
+    if (casinos.length === 0) return;
+    const timer = setTimeout(async () => {
+      for (const casino of casinos) {
+        await supabase.from('casinos').update({ note: casino.note }).eq('id', casino.id);
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [noteValues]); // eslint-disable-line
+
+  const balanceValues = casinos.map(c => c.currentBalance).join(',');
+  useEffect(() => {
+    if (casinos.length === 0) return;
+    const timer = setTimeout(async () => {
+      for (const casino of casinos) {
+        await supabase.from('casinos').update({ current_balance: casino.currentBalance }).eq('id', casino.id);
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [balanceValues]); // eslint-disable-line
+
+  const updateNote = (id, note) => setCasinos(prev => prev.map(c => c.id === id ? { ...c, note } : c));
+  const updateBalance = (id, balance) => setCasinos(prev => prev.map(c => c.id === id ? { ...c, currentBalance: Number(balance) } : c));
+  const updateRating = async (id, rating) => {
+    setCasinos(prev => prev.map(c => c.id === id ? { ...c, rating } : c));
+    await supabase.from('casinos').update({ rating }).eq('id', id);
+  };
+
+  const handleDeleteTransaction = async (transactionId, casinoId) => {
+    const { error } = await supabase.from('transactions').delete().eq('id', transactionId);
+    if (!error) {
+      setAllTransactions(prev => prev.filter(t => t.id !== transactionId));
+      setCasinos(prev => prev.map(c => c.id === casinoId
+        ? { ...c, transactions: c.transactions.filter(t => t.id !== transactionId) }
+        : c
+      ));
+    }
+  };
+
+  const handleDeleteCasino = async (casinoId) => {
+    const { error } = await supabase.from('casinos').delete().eq('id', casinoId);
+    if (!error) {
+      setCasinos(prev => prev.filter(c => c.id !== casinoId));
+      setAllTransactions(prev => prev.filter(t => t.casino_id !== casinoId));
+      setDeletingCasinoId(null);
+    }
+  };
+
+  const handleSaveCasinoName = async (casinoId) => {
+    if (!editingCasinoName.trim()) return;
+    const { error } = await supabase.from('casinos').update({ casino_name: editingCasinoName.trim() }).eq('id', casinoId);
+    if (!error) {
+      setCasinos(prev => prev.map(c => c.id === casinoId ? { ...c, name: editingCasinoName.trim() } : c));
+      setEditingCasinoId(null);
+      setEditingCasinoName('');
+    }
+  };
+
+  const toggleExpanded = (casinoId) => {
+    setExpandedCasinos(prev => ({ ...prev, [casinoId]: !prev[casinoId] }));
+  };
+
+  const currency = profile?.currency || 'EUR';
   const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'SEK' ? 'kr' : currency === 'DKK' ? 'kr' : '€';
+  const timeFilters = ['Last 24hrs', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'Last 6 Months', 'Last Year', 'All Time'];
 
-  const totalDeposits = casinos.reduce((sum, c) => sum + c.deposits, 0);
-  const totalWithdrawals = casinos.reduce((sum, c) => sum + c.withdrawals, 0);
-  const totalBonuses = casinos.reduce((sum, c) => sum + c.bonuses, 0);
+  const globalRange = useMemo(() => getDateRange(timeFilter), [timeFilter]);
+  const globalFilteredTransactions = useMemo(() => filterByDateRange(allTransactions, globalRange), [allTransactions, globalRange]);
+  const datedTransactions = useMemo(() => globalFilteredTransactions.filter(t => t.entry_method !== 'lifetime'), [globalFilteredTransactions]);
+  const globalTotals = useMemo(() => calcTotals(globalFilteredTransactions), [globalFilteredTransactions]);
+  const limitTotals = useMemo(() => calcTotals(datedTransactions), [datedTransactions]);
+
   const totalCurrentBalance = casinos.reduce((sum, c) => sum + c.currentBalance, 0);
-  const netLoss = totalDeposits - totalWithdrawals - totalCurrentBalance;
-  const netResult = totalWithdrawals - totalDeposits;
+  const netLoss = limitTotals.deposits - limitTotals.withdrawals - totalCurrentBalance;
+  const netResult = globalTotals.withdrawals - globalTotals.deposits;
 
-  const depositLimitPercent = monthlyDepositLimit > 0 ? Math.min((totalDeposits / monthlyDepositLimit) * 100, 100) : 0;
-  const netLossLimitPercent = monthlyNetLossLimit > 0 ? Math.min((netLoss / monthlyNetLossLimit) * 100, 100) : 0;
+  const depositLimitPercent = monthlyDepositLimit > 0 ? Math.min((limitTotals.deposits / monthlyDepositLimit) * 100, 100) : 0;
+  const netLossLimitPercent = monthlyNetLossLimit > 0 ? Math.min((Math.max(0, netLoss) / monthlyNetLossLimit) * 100, 100) : 0;
 
-  const mostPlayed = casinos.length > 0 ? [...casinos].sort((a, b) => b.sessions - a.sessions)[0] : null;
-  const mostProfitable = casinos.length > 0 ? [...casinos].sort((a, b) => (b.withdrawals - b.deposits) - (a.withdrawals - a.deposits))[0] : null;
+  const hasLifetimeOnlyCasinos = casinos.some(c => c.hasOnlyLifetime);
 
-  const filteredCasinos = casinos.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const casinoSummaries = useMemo(() => {
+    return casinos.map(c => {
+      const filtered = filterByDateRange(c.transactions, globalRange);
+      const totals = calcTotals(filtered);
+      return { ...c, ...totals };
+    });
+  }, [casinos, globalRange]);
+
+  const mostPlayed = casinoSummaries.length > 0 ? [...casinoSummaries].sort((a, b) => b.deposits - a.deposits)[0] : null;
+  const mostProfitable = casinoSummaries.length > 0 ? [...casinoSummaries].sort((a, b) => (b.withdrawals - b.deposits) - (a.withdrawals - a.deposits))[0] : null;
+
+  const chartData = casinoSummaries.map(c => ({ name: c.name, Deposits: c.deposits, Withdrawals: c.withdrawals }));
+
+  const trendData = useMemo(() => {
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const label = d.toLocaleDateString('en-GB', { month: 'short' });
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      const monthTransactions = allTransactions.filter(t => {
+        const td = new Date(t.date);
+        return td.getMonth() === month && td.getFullYear() === year && t.entry_method !== 'lifetime';
+      });
+      const totals = calcTotals(monthTransactions);
+      months.push({ month: label, deposits: totals.deposits, withdrawals: totals.withdrawals });
+    }
+    return months;
+  }, [allTransactions]);
 
   const allGameStats = casinos.flatMap(c => c.gameStats || []).reduce((acc, g) => {
     const existing = acc.find(a => a.game === g.game);
@@ -48,32 +309,12 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
     return acc;
   }, []).sort((a, b) => b.amount - a.amount);
 
-  const chartData = casinos.map(c => ({
-    name: c.name,
-    Deposits: c.deposits,
-    Withdrawals: c.withdrawals,
-    Net: c.withdrawals - c.deposits,
-  }));
-
-  const trendData = [
-    { month: 'Oct', deposits: 0, withdrawals: 0 },
-    { month: 'Nov', deposits: 0, withdrawals: 0 },
-    { month: 'Dec', deposits: 0, withdrawals: 0 },
-    { month: 'Jan', deposits: 0, withdrawals: 0 },
-    { month: 'Feb', deposits: 0, withdrawals: 0 },
-    { month: 'Mar', deposits: 0, withdrawals: 0 },
-  ];
+  const filteredCasinos = casinoSummaries.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const getNotificationMessage = (percent, type) => {
-    if (percent >= 100) return type === 'deposit'
-      ? `You have reached your monthly deposit limit.`
-      : `You have reached your monthly net loss limit.`;
-    if (percent >= 80) return type === 'deposit'
-      ? `Almost at your limit — 80% of your monthly deposit budget used.`
-      : `Almost at your limit — 80% of your monthly net loss budget used.`;
-    if (percent >= 50) return type === 'deposit'
-      ? `50% of your monthly deposit limit used.`
-      : `50% of your monthly net loss limit used.`;
+    if (percent >= 100) return type === 'deposit' ? 'You have reached your monthly deposit limit.' : 'You have reached your monthly net loss limit.';
+    if (percent >= 80) return type === 'deposit' ? 'Almost at your limit — 80% of your monthly deposit budget used.' : 'Almost at your limit — 80% of your monthly net loss budget used.';
+    if (percent >= 50) return type === 'deposit' ? '50% of your monthly deposit limit used.' : '50% of your monthly net loss limit used.';
     return null;
   };
 
@@ -83,32 +324,19 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
 
   const handleExportReport = () => {
     const reportData = [
-      ['Casiflow Monthly Report'],
+      ['Casiflow Report'],
       ['Generated:', new Date().toLocaleDateString()],
-      ['Player:', user.name],
+      ['Player:', profile?.full_name || user.email],
       ['Period:', timeFilter],
       [],
       ['Summary'],
-      ['Total Deposited:', `${symbol}${totalDeposits}`],
-      ['Total Withdrawn:', `${symbol}${totalWithdrawals}`],
-      ['Total Bonuses:', `${symbol}${totalBonuses}`],
+      ['Total Deposited:', `${symbol}${globalTotals.deposits}`],
+      ['Total Withdrawn:', `${symbol}${globalTotals.withdrawals}`],
       ['Net Result:', `${netResult >= 0 ? '+' : '-'}${symbol}${Math.abs(netResult)}`],
-      ['Net Loss:', `${symbol}${Math.max(0, netLoss)}`],
-      [],
-      ['Limits'],
-      ['Monthly Deposit Limit:', `${symbol}${monthlyDepositLimit}`],
-      ['Monthly Net Loss Limit:', `${symbol}${monthlyNetLossLimit}`],
       [],
       ['Casino Breakdown'],
       ['Casino', 'Deposited', 'Withdrawn', 'Bonus', 'Current Balance', 'Net Result'],
-      ...casinos.map(c => [
-        c.name,
-        `${symbol}${c.deposits}`,
-        `${symbol}${c.withdrawals}`,
-        `${symbol}${c.bonuses}`,
-        `${symbol}${c.currentBalance}`,
-        `${c.withdrawals + c.currentBalance - c.deposits >= 0 ? '+' : '-'}${symbol}${Math.abs(c.withdrawals + c.currentBalance - c.deposits)}`
-      ])
+      ...casinoSummaries.map(c => [c.name, `${symbol}${c.deposits}`, `${symbol}${c.withdrawals}`, `${symbol}${c.bonuses}`, `${symbol}${c.currentBalance}`, `${c.withdrawals + c.currentBalance - c.deposits >= 0 ? '+' : '-'}${symbol}${Math.abs(c.withdrawals + c.currentBalance - c.deposits)}`])
     ];
     const csvContent = reportData.map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -119,6 +347,25 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleFeedback = () => {
+    if (feedback.trim()) {
+      setFeedbackSent(true);
+      setFeedback('');
+      setTimeout(() => { setShowFeedback(false); setFeedbackSent(false); }, 2000);
+    }
+  };
+
+  const getAvatarColor = (name) => {
+    const colors = ['#0ea5e9', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16'];
+    return colors[name.charCodeAt(0) % colors.length];
+  };
+
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/dashboard' },
+    { id: 'casinos', label: 'Casinos', icon: <Building2 size={18} />, path: '/add-casino' },
+    { id: 'profile', label: 'Profile', icon: <User size={18} />, path: '/profile' },
+  ];
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -139,35 +386,37 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
     return null;
   };
 
-  const handleFeedback = () => {
-    if (feedback.trim()) {
-      setFeedbackSent(true);
-      setFeedback('');
-      setTimeout(() => { setShowFeedback(false); setFeedbackSent(false); }, 2000);
-    }
-  };
-
-  const updateNote = (id, note) => setCasinos(casinos.map(c => c.id === id ? { ...c, note } : c));
-  const updateRating = (id, rating) => setCasinos(casinos.map(c => c.id === id ? { ...c, rating } : c));
-  const updateBalance = (id, balance) => setCasinos(casinos.map(c => c.id === id ? { ...c, currentBalance: Number(balance) } : c));
-
-  const getAvatarColor = (name) => {
-    const colors = ['#0ea5e9', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16'];
-    return colors[name.charCodeAt(0) % colors.length];
-  };
-
-  const getCasinoNetResult = (casino) => casino.withdrawals + casino.currentBalance - casino.deposits;
-
-  const timeFilters = ['Last 24hrs', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'Last 6 Months', 'Last Year', 'All Time'];
-
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/dashboard' },
-    { id: 'casinos', label: 'Casinos', icon: <Building2 size={18} />, path: '/add-casino' },
-    { id: 'profile', label: 'Profile', icon: <User size={18} />, path: '/profile' },
-  ];
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', fontFamily: 'Segoe UI, Arial, sans-serif', color: '#64748b' }}>
+      Loading your dashboard...
+    </div>
+  );
 
   return (
     <div style={styles.appContainer}>
+      {addTransactionCasino && (
+        <AddTransactionModal
+          casino={addTransactionCasino}
+          userId={user.id}
+          currency={currency}
+          onClose={() => setAddTransactionCasino(null)}
+          onSaved={() => { setAddTransactionCasino(null); fetchCasinos(); }}
+        />
+      )}
+
+      {deletingCasinoId && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.confirmModal}>
+            <h3 style={styles.confirmTitle}>Delete Casino</h3>
+            <p style={styles.confirmText}>Are you sure you want to delete this casino and all its transactions? This cannot be undone.</p>
+            <div style={styles.confirmActions}>
+              <button style={styles.confirmCancelBtn} onClick={() => setDeletingCasinoId(null)}>Cancel</button>
+              <button style={styles.confirmDeleteBtn} onClick={() => handleDeleteCasino(deletingCasinoId)}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!isMobile && (
         <div style={styles.sidebar}>
           <div style={styles.sidebarLogo}>
@@ -177,12 +426,7 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
           </div>
           <nav style={styles.sidebarNav}>
             {navItems.map(item => (
-              <Link
-                key={item.id}
-                to={item.path}
-                style={{ ...styles.navItem, ...(activeNav === item.id ? styles.navItemActive : {}) }}
-                onClick={() => setActiveNav(item.id)}
-              >
+              <Link key={item.id} to={item.path} style={{ ...styles.navItem, ...(activeNav === item.id ? styles.navItemActive : {}) }} onClick={() => setActiveNav(item.id)}>
                 <span style={styles.navIcon}>{item.icon}</span>
                 <span>{item.label}</span>
               </Link>
@@ -198,13 +442,9 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
       <div style={isMobile ? styles.mainContentMobile : styles.mainContent}>
         <div style={isMobile ? styles.topBarMobile : styles.topBar}>
           <div style={styles.topBarLeft}>
-            {isMobile && (
-              <Link to="/dashboard" style={styles.logoLink}>
-                <h1 style={styles.logoTextMobile}>Casiflow</h1>
-              </Link>
-            )}
+            {isMobile && <Link to="/dashboard" style={styles.logoLink}><h1 style={styles.logoTextMobile}>Casiflow</h1></Link>}
             {!isMobile && <h2 style={styles.pageTitle}>Dashboard</h2>}
-            {!isMobile && <span style={styles.jurisdiction}>{user.jurisdiction || 'Global'}</span>}
+            {!isMobile && <span style={styles.jurisdiction}>{profile?.country || 'Global'}</span>}
           </div>
           <div style={styles.topBarRight}>
             {!isMobile && (
@@ -213,7 +453,7 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
                 <span>Export Report</span>
               </button>
             )}
-            {!isMobile && <span style={styles.greeting}>Hi, {user.name}</span>}
+            {!isMobile && profile && <span style={styles.greeting}>Hi, {firstName}</span>}
             <button style={styles.bellBtn}><Bell size={18} /></button>
           </div>
         </div>
@@ -221,60 +461,40 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
         {activeNotification && showNotification && (
           <div style={{ ...styles.notificationBanner, backgroundColor: netLossLimitPercent >= 100 || depositLimitPercent >= 100 ? '#fef2f2' : '#fffbeb' }}>
             <span style={{ fontSize: '13px', color: netLossLimitPercent >= 100 || depositLimitPercent >= 100 ? '#dc2626' : '#92400e' }}>
-              {netLossLimitPercent >= 100 || depositLimitPercent >= 100 ? '🚨' : '⚠️'} {activeNotification}
+              ⚠️ {activeNotification}
             </span>
             <button onClick={() => setShowNotification(false)} style={styles.notificationClose}>✕</button>
           </div>
         )}
 
+        {hasLifetimeOnlyCasinos && (
+          <div style={styles.lifetimeNoticeBanner}>
+            Some of your casinos use lifetime totals. Monthly limit tracking only applies to individually dated transactions.
+          </div>
+        )}
+
         <div style={isMobile ? styles.heroBannerMobile : styles.heroBanner}>
           <div style={styles.heroLeft}>
-            <p style={styles.heroLabel}>This month you are</p>
+            <p style={styles.heroLabel}>{timeFilter === 'All Time' ? 'All time you are' : `${timeFilter} you are`}</p>
             <h2 style={{ ...styles.heroAmount, color: casinos.length === 0 ? 'rgba(255,255,255,0.4)' : netResult >= 0 ? '#4ade80' : '#f87171' }}>
               {casinos.length === 0 ? 'No data yet' : `${netResult >= 0 ? '+' : '-'}${symbol}${Math.abs(netResult).toLocaleString()}`}
             </h2>
-            <p style={styles.heroSub}>
-              {casinos.length === 0 ? 'Add your first casino to get started' : `across ${casinos.length} casinos · Net loss: ${symbol}${Math.max(0, netLoss).toLocaleString()}`}
-            </p>
+            <p style={styles.heroSub}>{casinos.length === 0 ? 'Add your first casino to get started' : `across ${casinos.length} casinos`}</p>
           </div>
           {!isMobile && (
             <div style={styles.heroRight}>
-              <div style={styles.heroStat}>
-                <p style={styles.heroStatLabel}>Deposit Limit</p>
-                <p style={styles.heroStatValue}>{symbol}{monthlyDepositLimit.toLocaleString()}</p>
-              </div>
-              <div style={styles.heroStat}>
-                <p style={styles.heroStatLabel}>Net Loss Limit</p>
-                <p style={styles.heroStatValue}>{symbol}{monthlyNetLossLimit.toLocaleString()}</p>
-              </div>
-              <div style={styles.heroStat}>
-                <p style={styles.heroStatLabel}>Most Played</p>
-                <p style={styles.heroStatValue}>{mostPlayed?.name || '—'}</p>
-              </div>
-              <div style={styles.heroStat}>
-                <p style={styles.heroStatLabel}>Most Profitable</p>
-                <p style={styles.heroStatValue}>{mostProfitable?.name || '—'}</p>
-              </div>
+              <div style={styles.heroStat}><p style={styles.heroStatLabel}>Deposit Limit</p><p style={styles.heroStatValue}>{symbol}{monthlyDepositLimit.toLocaleString()}</p></div>
+              <div style={styles.heroStat}><p style={styles.heroStatLabel}>Net Loss Limit</p><p style={styles.heroStatValue}>{symbol}{monthlyNetLossLimit.toLocaleString()}</p></div>
+              <div style={styles.heroStat}><p style={styles.heroStatLabel}>Most Played</p><p style={styles.heroStatValue}>{mostPlayed?.name || '—'}</p></div>
+              <div style={styles.heroStat}><p style={styles.heroStatLabel}>Most Profitable</p><p style={styles.heroStatValue}>{mostProfitable?.name || '—'}</p></div>
             </div>
           )}
           {isMobile && (
             <div style={styles.heroStatsMobile}>
-              <div style={styles.heroStatMobile}>
-                <p style={styles.heroStatLabel}>Deposit Limit</p>
-                <p style={styles.heroStatValue}>{symbol}{monthlyDepositLimit.toLocaleString()}</p>
-              </div>
-              <div style={styles.heroStatMobile}>
-                <p style={styles.heroStatLabel}>Net Loss Limit</p>
-                <p style={styles.heroStatValue}>{symbol}{monthlyNetLossLimit.toLocaleString()}</p>
-              </div>
-              <div style={styles.heroStatMobile}>
-                <p style={styles.heroStatLabel}>Most Played</p>
-                <p style={styles.heroStatValue}>{mostPlayed?.name || '—'}</p>
-              </div>
-              <div style={styles.heroStatMobile}>
-                <p style={styles.heroStatLabel}>Most Profitable</p>
-                <p style={styles.heroStatValue}>{mostProfitable?.name || '—'}</p>
-              </div>
+              <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Deposit Limit</p><p style={styles.heroStatValue}>{symbol}{monthlyDepositLimit.toLocaleString()}</p></div>
+              <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Net Loss Limit</p><p style={styles.heroStatValue}>{symbol}{monthlyNetLossLimit.toLocaleString()}</p></div>
+              <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Most Played</p><p style={styles.heroStatValue}>{mostPlayed?.name || '—'}</p></div>
+              <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Most Profitable</p><p style={styles.heroStatValue}>{mostProfitable?.name || '—'}</p></div>
             </div>
           )}
         </div>
@@ -288,12 +508,12 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
         <div style={isMobile ? styles.statsRowMobile : styles.statsRow}>
           <div style={styles.statCard}>
             <p style={styles.statLabel}>Total Deposited</p>
-            <p style={styles.statValue}>{symbol}{totalDeposits.toLocaleString()}</p>
+            <p style={styles.statValue}>{symbol}{globalTotals.deposits.toLocaleString()}</p>
             <p style={styles.statSub}>across {casinos.length} casinos</p>
           </div>
           <div style={styles.statCard}>
             <p style={styles.statLabel}>Total Withdrawn</p>
-            <p style={styles.statValue}>{symbol}{totalWithdrawals.toLocaleString()}</p>
+            <p style={styles.statValue}>{symbol}{globalTotals.withdrawals.toLocaleString()}</p>
             <p style={styles.statSub}>total cashouts</p>
           </div>
           <div style={{ ...styles.statCard, backgroundColor: netResult >= 0 ? '#f0fdf4' : '#fef2f2', borderLeft: `4px solid ${netResult >= 0 ? '#22c55e' : '#ef4444'}` }}>
@@ -305,7 +525,7 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
           </div>
           <div style={{ ...styles.statCard, backgroundColor: '#fefce8', borderLeft: '4px solid #eab308' }}>
             <p style={styles.statLabel}>Bonus Balance</p>
-            <p style={{ ...styles.statValue, color: '#ca8a04' }}>{symbol}{totalBonuses.toLocaleString()}</p>
+            <p style={{ ...styles.statValue, color: '#ca8a04' }}>{symbol}{globalTotals.bonuses.toLocaleString()}</p>
             <p style={styles.statSub}>total bonuses received</p>
           </div>
         </div>
@@ -324,7 +544,7 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
                 {depositLimitPercent > 15 && <span style={styles.progressLabel}>{depositLimitPercent.toFixed(0)}%</span>}
               </div>
             </div>
-            <p style={styles.limitText}>{symbol}{totalDeposits} deposited of {symbol}{monthlyDepositLimit} limit</p>
+            <p style={styles.limitText}>{symbol}{limitTotals.deposits.toLocaleString()} deposited of {symbol}{monthlyDepositLimit.toLocaleString()} limit{hasLifetimeOnlyCasinos ? ' (dated transactions only)' : ''}</p>
           </div>
           <div style={styles.limitCard}>
             <div style={styles.limitRow}>
@@ -339,17 +559,15 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
                 {netLossLimitPercent > 15 && <span style={styles.progressLabel}>{netLossLimitPercent.toFixed(0)}%</span>}
               </div>
             </div>
-            <p style={styles.limitText}>{symbol}{Math.max(0, netLoss)} net loss of {symbol}{monthlyNetLossLimit} limit</p>
+            <p style={styles.limitText}>{symbol}{Math.max(0, netLoss).toLocaleString()} net loss of {symbol}{monthlyNetLossLimit.toLocaleString()} limit{hasLifetimeOnlyCasinos ? ' (dated transactions only)' : ''}</p>
           </div>
         </div>
 
         {casinos.length === 0 ? (
           <div style={isMobile ? styles.emptyDashboardMobile : styles.emptyDashboard}>
             <div style={styles.emptyDashboardContent}>
-              <div style={styles.emptyIconWrapper}>
-                <Building2 size={40} color="#0ea5e9" />
-              </div>
-              <h3 style={styles.emptyDashboardTitle}>Welcome to Casiflow, {user.name}!</h3>
+              <div style={styles.emptyIconWrapper}><Building2 size={40} color="#0ea5e9" /></div>
+              <h3 style={styles.emptyDashboardTitle}>Welcome to Casiflow, {firstName}!</h3>
               <p style={styles.emptyDashboardText}>You have not added any casinos yet. Add your first casino to start tracking your spending.</p>
               <Link to="/add-casino" style={styles.emptyDashboardBtn}>+ Add Your First Casino</Link>
             </div>
@@ -358,7 +576,7 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
           <>
             <div style={isMobile ? styles.chartsRowMobile : styles.chartsRow}>
               <div style={styles.chartCard}>
-                <h3 style={styles.sectionTitle}>Deposits vs Withdrawals</h3>
+                <h3 style={styles.sectionTitle}>Deposits vs Withdrawals — {timeFilter}</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={chartData} barGap={4}>
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -374,7 +592,7 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
                 </div>
               </div>
               <div style={styles.chartCard}>
-                <h3 style={styles.sectionTitle}>Monthly Trend</h3>
+                <h3 style={styles.sectionTitle}>Monthly Trend — Last 6 Months</h3>
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -396,9 +614,7 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
                     <div key={i} style={styles.gameStatItem}>
                       <p style={styles.gameStatName}>{g.game}</p>
                       <p style={styles.gameStatAmount}>{symbol}{g.amount.toLocaleString()}</p>
-                      <div style={styles.gameStatBar}>
-                        <div style={{ ...styles.gameStatBarFill, width: `${(g.amount / allGameStats[0].amount) * 100}%` }} />
-                      </div>
+                      <div style={styles.gameStatBar}><div style={{ ...styles.gameStatBarFill, width: `${(g.amount / allGameStats[0].amount) * 100}%` }} /></div>
                     </div>
                   ))}
                 </div>
@@ -426,31 +642,35 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
               <input style={styles.searchInput} type="text" placeholder="Search casinos..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </div>
           </div>
+
           {casinos.length === 0 ? (
             <div style={styles.emptyState}>
-              <div style={styles.emptyIconWrapper}>
-                <Building2 size={32} color="#94a3b8" />
-              </div>
+              <div style={styles.emptyIconWrapper}><Building2 size={32} color="#94a3b8" /></div>
               <p style={styles.emptyTitle}>No casinos added yet</p>
               <p style={styles.emptyText}>Add your first casino to start tracking your spending</p>
               <Link to="/add-casino" style={styles.emptyAddBtn}>+ Add Casino</Link>
             </div>
           ) : filteredCasinos.length === 0 ? (
             <div style={styles.emptyState}>
-              <div style={styles.emptyIconWrapper}>
-                <Search size={32} color="#94a3b8" />
-              </div>
+              <div style={styles.emptyIconWrapper}><Search size={32} color="#94a3b8" /></div>
               <p style={styles.emptyTitle}>No casinos found</p>
               <p style={styles.emptyText}>Try a different search term</p>
             </div>
           ) : (
             filteredCasinos.map(casino => {
-              const casinoNetResult = getCasinoNetResult(casino);
+              const casinoFilter = casinoFilters[casino.id] || 'All Time';
+              const casinoRange = getDateRange(casinoFilter);
+              const casinoFiltered = filterByDateRange(casino.transactions, casinoRange);
+              const casinoTotals = calcTotals(casinoFiltered);
+              const casinoNetResult = casinoTotals.withdrawals + casino.currentBalance - casinoTotals.deposits;
               const isWinning = casinoNetResult >= 0;
-              const maxAmount = casino.deposits + casino.withdrawals;
-              const depositWidth = maxAmount > 0 ? (casino.deposits / maxAmount) * 100 : 0;
-              const withdrawalWidth = maxAmount > 0 ? (casino.withdrawals / maxAmount) * 100 : 0;
+              const maxAmount = casinoTotals.deposits + casinoTotals.withdrawals;
+              const depositWidth = maxAmount > 0 ? (casinoTotals.deposits / maxAmount) * 100 : 0;
+              const withdrawalWidth = maxAmount > 0 ? (casinoTotals.withdrawals / maxAmount) * 100 : 0;
               const avatarColor = getAvatarColor(casino.name);
+              const isExpanded = expandedCasinos[casino.id] || false;
+              const isEditingName = editingCasinoId === casino.id;
+
               return (
                 <div key={casino.id} style={styles.casinoCard}>
                   <div style={styles.casinoHeader}>
@@ -458,8 +678,27 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
                       <div style={{ ...styles.casinoAvatar, backgroundColor: avatarColor }}>{casino.name.charAt(0).toUpperCase()}</div>
                       <div>
                         <div style={styles.casinoNameLine}>
-                          <h4 style={styles.casinoName}>{casino.name}</h4>
-                          <span style={{ ...styles.statusDot, backgroundColor: isWinning ? '#22c55e' : '#ef4444' }} />
+                          {isEditingName ? (
+                            <div style={styles.editNameRow}>
+                              <input
+                                style={styles.editNameInput}
+                                value={editingCasinoName}
+                                onChange={(e) => setEditingCasinoName(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveCasinoName(casino.id); if (e.key === 'Escape') { setEditingCasinoId(null); setEditingCasinoName(''); } }}
+                                autoFocus
+                              />
+                              <button style={styles.editActionBtn} onClick={() => handleSaveCasinoName(casino.id)}><Check size={14} color="#16a34a" /></button>
+                              <button style={styles.editActionBtn} onClick={() => { setEditingCasinoId(null); setEditingCasinoName(''); }}><X size={14} color="#ef4444" /></button>
+                            </div>
+                          ) : (
+                            <>
+                              <h4 style={styles.casinoName}>{casino.name}</h4>
+                              <span style={{ ...styles.statusDot, backgroundColor: isWinning ? '#22c55e' : '#ef4444' }} />
+                              <button style={styles.editNameBtn} onClick={() => { setEditingCasinoId(casino.id); setEditingCasinoName(casino.name); }}>
+                                <Edit2 size={12} color="#94a3b8" />
+                              </button>
+                            </>
+                          )}
                         </div>
                         <span style={styles.lastActivity}>Last activity: {casino.lastActivity}</span>
                       </div>
@@ -477,6 +716,7 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
                       </span>
                     </div>
                   </div>
+
                   {isMobile && (
                     <div style={styles.casinoMobileRow}>
                       <div style={styles.starRating}>
@@ -484,46 +724,109 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
                           <Star key={star} size={18} fill={star <= casino.rating ? '#f59e0b' : 'none'} color={star <= casino.rating ? '#f59e0b' : '#e2e8f0'} style={{ cursor: 'pointer' }} onClick={() => updateRating(casino.id, star)} />
                         ))}
                       </div>
-                      <span style={styles.streakBadge}>
-                        {casino.streak >= 0
-                          ? <><TrendingUp size={12} color="#16a34a" /> {casino.streak} win streak</>
-                          : <><TrendingDown size={12} color="#dc2626" /> {Math.abs(casino.streak)} loss streak</>
-                        }
-                      </span>
                     </div>
                   )}
-                  {!isMobile && (
-                    <div style={styles.streakRowDesktop}>
-                      <span style={styles.streakBadge}>
-                        {casino.streak >= 0
-                          ? <><TrendingUp size={12} color="#16a34a" /> {casino.streak} win streak</>
-                          : <><TrendingDown size={12} color="#dc2626" /> {Math.abs(casino.streak)} loss streak</>
-                        }
-                      </span>
-                    </div>
+
+                  <div style={styles.casinoFilterBar}>
+                    {timeFilters.map(f => (
+                      <button key={f} style={{ ...styles.casinoFilterBtn, ...(casinoFilter === f ? styles.casinoFilterBtnActive : {}) }} onClick={() => setCasinoFilters(prev => ({ ...prev, [casino.id]: f }))}>
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+
+                  {casino.hasOnlyLifetime && casinoFilter !== 'All Time' && (
+                    <p style={styles.casinoLifetimeNote}>This casino uses lifetime totals — time filtering is not available.</p>
                   )}
+
                   <div style={styles.casinoBarRow}>
-                    <div style={styles.barLabelRow}>
-                      <span style={styles.barLabel}>Deposits</span>
-                      <span style={styles.barLabel}>Withdrawals</span>
+                    <div style={styles.casinoMiniBar}>
+                      <div style={{ ...styles.casinoBarFill, width: `${depositWidth}%`, backgroundColor: '#0ea5e9' }} />
                     </div>
-                    <div style={styles.casinoMiniBar}><div style={{ ...styles.casinoBarFill, width: `${depositWidth}%`, backgroundColor: '#0ea5e9' }} /></div>
-                    <div style={styles.casinoMiniBar}><div style={{ ...styles.casinoBarFill, width: `${withdrawalWidth}%`, backgroundColor: '#10b981' }} /></div>
+                    <div style={styles.casinoMiniBar}>
+                      <div style={{ ...styles.casinoBarFill, width: `${withdrawalWidth}%`, backgroundColor: '#10b981' }} />
+                    </div>
+                    <div style={styles.barStatRow}>
+                      <div style={styles.barStat}>
+                        <span style={{ ...styles.barStatDot, backgroundColor: '#0ea5e9' }} />
+                        <span style={styles.barStatLabel}>Deposits</span>
+                        <span style={styles.barStatValue}>{symbol}{casinoTotals.deposits.toLocaleString()}</span>
+                      </div>
+                      <div style={styles.barStat}>
+                        <span style={{ ...styles.barStatDot, backgroundColor: '#10b981' }} />
+                        <span style={styles.barStatLabel}>Withdrawals</span>
+                        <span style={styles.barStatValue}>{symbol}{casinoTotals.withdrawals.toLocaleString()}</span>
+                      </div>
+                    </div>
                   </div>
+
                   <div style={isMobile ? styles.casinoStatsMobile : styles.casinoStats}>
-                    <span>Dep: {symbol}{casino.deposits}</span>
-                    <span>With: {symbol}{casino.withdrawals}</span>
-                    <span>Bonus: {symbol}{casino.bonuses}</span>
-                    <span style={{ color: isWinning ? '#16a34a' : '#dc2626', fontWeight: '600' }}>Net: {isWinning ? '+' : '-'}{symbol}{Math.abs(casinoNetResult)}</span>
+                    <span>Bonus: {symbol}{casinoTotals.bonuses.toLocaleString()}</span>
+                    <span>Balance: {symbol}{casino.currentBalance.toLocaleString()}</span>
+                    <span style={{ color: isWinning ? '#16a34a' : '#dc2626', fontWeight: '600' }}>
+                      Net: {isWinning ? '+' : '-'}{symbol}{Math.abs(casinoNetResult).toLocaleString()}
+                    </span>
                   </div>
-                  <div style={styles.balanceRow}>
-                    <label style={styles.balanceLabel}>Current Balance ({symbol})</label>
-                    <input style={styles.balanceInput} type="number" value={casino.currentBalance} onChange={(e) => updateBalance(casino.id, e.target.value)} placeholder="0" />
-                  </div>
+
                   <input style={styles.noteInput} placeholder="Add a note..." value={casino.note} onChange={(e) => updateNote(casino.id, e.target.value)} />
+
                   {casino.gameStats && casino.gameStats.length > 0 && (
                     <div style={styles.casinoGameStats}>
                       {casino.gameStats.map((g, i) => <span key={i} style={styles.gameTag}>{g.game}: {symbol}{g.amount}</span>)}
+                    </div>
+                  )}
+
+                  <div style={styles.casinoActionsRow}>
+                    <button style={styles.addTransactionBtn} onClick={() => setAddTransactionCasino(casino)}>
+                      <Plus size={14} />
+                      <span>Add Transaction</span>
+                    </button>
+                    <button style={styles.viewTransactionsBtn} onClick={() => toggleExpanded(casino.id)}>
+                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      <span>{isExpanded ? 'Hide' : 'View'} Transactions ({casino.transactions.length})</span>
+                    </button>
+                    <button style={styles.deleteCasinoBtn} onClick={() => setDeletingCasinoId(casino.id)}>
+                      <Trash2 size={14} />
+                      {!isMobile && <span>Delete</span>}
+                    </button>
+                  </div>
+
+                  {isExpanded && (
+                    <div style={styles.transactionHistory}>
+                      {casino.transactions.length === 0 ? (
+                        <p style={styles.noTransactionsText}>No transactions yet.</p>
+                      ) : (
+                        <table style={styles.transactionTable}>
+                          <thead>
+                            <tr>
+                              <th style={styles.transactionTh}>Date</th>
+                              <th style={styles.transactionTh}>Type</th>
+                              <th style={styles.transactionTh}>Amount</th>
+                              <th style={styles.transactionTh}>Game</th>
+                              <th style={styles.transactionTh}></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {casino.transactions.map(t => (
+                              <tr key={t.id}>
+                                <td style={styles.transactionTd}>{new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                                <td style={styles.transactionTd}>
+                                  <span style={{ ...styles.typeBadge, backgroundColor: t.type === 'deposit' ? '#f0f9ff' : t.type === 'withdrawal' ? '#f0fdf4' : '#fefce8', color: t.type === 'deposit' ? '#0369a1' : t.type === 'withdrawal' ? '#15803d' : '#92400e' }}>
+                                    {t.type.charAt(0).toUpperCase() + t.type.slice(1)}
+                                  </span>
+                                </td>
+                                <td style={styles.transactionTd}>{symbol}{Number(t.amount).toLocaleString()}</td>
+                                <td style={styles.transactionTd}>{t.game_type || '—'}</td>
+                                <td style={styles.transactionTd}>
+                                  <button style={styles.deleteTransactionBtn} onClick={() => handleDeleteTransaction(t.id, casino.id)}>
+                                    <Trash2 size={13} color="#ef4444" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
                     </div>
                   )}
                 </div>
@@ -531,18 +834,14 @@ function Dashboard({ user, onLogout, userSettings, onUpdateSettings }) {
             })
           )}
         </div>
-        <Footer jurisdiction={user.jurisdiction} />
+
+        <Footer country={profile?.country} />
       </div>
 
       {isMobile && (
         <div style={styles.bottomNav}>
           {navItems.map(item => (
-            <Link
-              key={item.id}
-              to={item.path}
-              style={{ ...styles.bottomNavItem, ...(activeNav === item.id ? styles.bottomNavItemActive : {}) }}
-              onClick={() => setActiveNav(item.id)}
-            >
+            <Link key={item.id} to={item.path} style={{ ...styles.bottomNavItem, ...(activeNav === item.id ? styles.bottomNavItemActive : {}) }} onClick={() => setActiveNav(item.id)}>
               <span style={styles.bottomNavIcon}>{item.icon}</span>
               <span style={styles.bottomNavLabel}>{item.label}</span>
             </Link>
@@ -605,6 +904,7 @@ const styles = {
   exportBtn: { display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' },
   notificationBanner: { padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0' },
   notificationClose: { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#64748b', flexShrink: 0 },
+  lifetimeNoticeBanner: { padding: '10px 16px', backgroundColor: '#f0f9ff', borderBottom: '1px solid #bae6fd', fontSize: '13px', color: '#0369a1' },
   heroBanner: { background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', padding: '32px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   heroBannerMobile: { background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', padding: '24px 16px' },
   heroLeft: {},
@@ -687,25 +987,49 @@ const styles = {
   casinoNameLine: { display: 'flex', alignItems: 'center', gap: '6px' },
   statusDot: { width: '7px', height: '7px', borderRadius: '50%', display: 'inline-block' },
   casinoName: { margin: 0, color: '#0f172a', fontSize: '15px', fontWeight: '700' },
+  editNameBtn: { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', opacity: 0.5 },
+  editNameRow: { display: 'flex', alignItems: 'center', gap: '4px' },
+  editNameInput: { padding: '4px 8px', border: '1px solid #0ea5e9', borderRadius: '6px', fontSize: '14px', fontWeight: '700', width: '160px' },
+  editActionBtn: { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' },
   lastActivity: { color: '#94a3b8', fontSize: '11px', display: 'block', marginTop: '2px' },
   casinoHeaderRight: { display: 'flex', alignItems: 'center', gap: '10px' },
   casinoMobileRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' },
-  streakRowDesktop: { marginBottom: '10px' },
   starRating: { display: 'flex', gap: '2px' },
-  streakBadge: { display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#f1f5f9', color: '#64748b', fontSize: '11px', padding: '4px 8px', borderRadius: '20px', fontWeight: '500' },
+  casinoFilterBar: { display: 'flex', gap: '4px', marginBottom: '10px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' },
+  casinoFilterBtn: { padding: '3px 8px', borderRadius: '12px', border: '1px solid #e2e8f0', backgroundColor: 'white', color: '#94a3b8', fontSize: '11px', cursor: 'pointer', fontWeight: '500', whiteSpace: 'nowrap', flexShrink: 0 },
+  casinoFilterBtnActive: { backgroundColor: '#0ea5e9', color: 'white', border: '1px solid #0ea5e9' },
+  casinoLifetimeNote: { color: '#0369a1', backgroundColor: '#f0f9ff', fontSize: '12px', padding: '6px 10px', borderRadius: '6px', margin: '0 0 10px 0' },
   casinoBarRow: { marginBottom: '8px' },
-  barLabelRow: { display: 'flex', justifyContent: 'space-between', marginBottom: '3px' },
-  barLabel: { color: '#94a3b8', fontSize: '10px' },
   casinoMiniBar: { height: '5px', backgroundColor: '#f1f5f9', borderRadius: '3px', overflow: 'hidden', marginBottom: '3px' },
   casinoBarFill: { height: '100%', borderRadius: '3px', transition: 'width 0.3s ease' },
+  barStatRow: { display: 'flex', justifyContent: 'space-between', marginTop: '6px' },
+  barStat: { display: 'flex', alignItems: 'center', gap: '5px' },
+  barStatDot: { width: '8px', height: '8px', borderRadius: '50%', display: 'inline-block', flexShrink: 0 },
+  barStatLabel: { color: '#64748b', fontSize: '11px' },
+  barStatValue: { color: '#0f172a', fontSize: '12px', fontWeight: '700' },
   casinoStats: { display: 'flex', gap: '14px', color: '#64748b', fontSize: '12px', marginBottom: '10px', flexWrap: 'wrap' },
   casinoStatsMobile: { display: 'flex', gap: '10px', color: '#64748b', fontSize: '12px', marginBottom: '10px', flexWrap: 'wrap' },
-  balanceRow: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' },
-  balanceLabel: { color: '#374151', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' },
-  balanceInput: { width: '100px', padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', backgroundColor: 'white' },
   noteInput: { width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', color: '#64748b', boxSizing: 'border-box', backgroundColor: 'white', marginBottom: '8px' },
-  casinoGameStats: { display: 'flex', gap: '6px', flexWrap: 'wrap' },
+  casinoGameStats: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' },
   gameTag: { backgroundColor: '#f0f9ff', color: '#0369a1', fontSize: '11px', padding: '3px 8px', borderRadius: '20px', fontWeight: '500' },
+  casinoActionsRow: { display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' },
+  addTransactionBtn: { display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
+  viewTransactionsBtn: { display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', backgroundColor: 'white', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
+  deleteCasinoBtn: { display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', backgroundColor: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', marginLeft: 'auto' },
+  transactionHistory: { marginTop: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px', overflowX: 'auto' },
+  noTransactionsText: { color: '#94a3b8', fontSize: '13px', textAlign: 'center', padding: '12px 0', margin: 0 },
+  transactionTable: { width: '100%', borderCollapse: 'collapse', fontSize: '12px' },
+  transactionTh: { padding: '6px 10px', textAlign: 'left', color: '#64748b', fontWeight: '600', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' },
+  transactionTd: { padding: '8px 10px', color: '#374151', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' },
+  typeBadge: { padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' },
+  deleteTransactionBtn: { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: '20px' },
+  confirmModal: { backgroundColor: 'white', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' },
+  confirmTitle: { color: '#0f172a', fontSize: '18px', fontWeight: '800', margin: '0 0 10px 0' },
+  confirmText: { color: '#64748b', fontSize: '14px', lineHeight: '1.6', margin: '0 0 24px 0' },
+  confirmActions: { display: 'flex', gap: '10px' },
+  confirmCancelBtn: { flex: 1, padding: '12px', backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '14px', fontWeight: '600', color: '#64748b', cursor: 'pointer' },
+  confirmDeleteBtn: { flex: 1, padding: '12px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' },
   bottomNav: { position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: 'white', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '8px 0', zIndex: 100, boxShadow: '0 -2px 10px rgba(0,0,0,0.08)' },
   bottomNavItem: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', color: '#94a3b8', textDecoration: 'none', fontSize: '10px', fontWeight: '500', padding: '4px 12px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', minWidth: '60px' },
   bottomNavItemActive: { color: '#0ea5e9' },

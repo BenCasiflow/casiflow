@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
-function Signup({ onSignup }) {
+function Signup({ onSignupComplete }) {
+  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,6 +13,7 @@ function Signup({ onSignup }) {
   const [netLossLimit, setNetLossLimit] = useState('');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -75,11 +78,13 @@ function Signup({ onSignup }) {
     };
   };
 
-  const profile = getSpendingProfile();
+  const spendingProfile = getSpendingProfile();
   const percent = monthlyIncome && netLossLimit ? ((netLossLimit / monthlyIncome) * 100).toFixed(1) : null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+
     if (!name || !email || !password || !jurisdiction || !currency) {
       setError('Please fill in all required fields');
       return;
@@ -88,7 +93,40 @@ function Signup({ onSignup }) {
       setError('Please agree to the Terms & Conditions and Privacy Policy to continue');
       return;
     }
-    onSignup({ name, email, jurisdiction, currency, monthlyIncome: Number(monthlyIncome), netLossLimit: Number(netLossLimit) });
+
+    setLoading(true);
+
+    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+
+    if (signUpError) {
+      setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: data.user.id,
+      full_name: name,
+      country: jurisdiction,
+      currency: currency,
+      monthly_net_income: monthlyIncome ? Number(monthlyIncome) : null,
+      monthly_net_loss_limit: netLossLimit ? Number(netLossLimit) : null,
+      terms_accepted: true,
+    });
+
+    if (profileError) {
+      setError('Account created but profile could not be saved. Please contact support.');
+      setLoading(false);
+      return;
+    }
+
+    // Store name in sessionStorage so both Onboarding and Dashboard
+    // can show it instantly without waiting for Supabase
+    sessionStorage.setItem('newUserName', name);
+    sessionStorage.setItem('userFirstName', name.split(' ')[0]);
+
+    onSignupComplete(name);
+    navigate('/onboarding');
   };
 
   return (
@@ -182,10 +220,10 @@ function Signup({ onSignup }) {
               </div>
             </div>
 
-            {profile && (
-              <div style={{ ...styles.profileBox, backgroundColor: profile.bg, border: `1px solid ${profile.border}` }}>
-                <span style={{ ...styles.profilePercent, color: profile.color }}>{percent}% of income</span>
-                <p style={{ ...styles.profileText, color: profile.color }}>{profile.text}</p>
+            {spendingProfile && (
+              <div style={{ ...styles.profileBox, backgroundColor: spendingProfile.bg, border: `1px solid ${spendingProfile.border}` }}>
+                <span style={{ ...styles.profilePercent, color: spendingProfile.color }}>{percent}% of income</span>
+                <p style={{ ...styles.profileText, color: spendingProfile.color }}>{spendingProfile.text}</p>
               </div>
             )}
 
@@ -199,7 +237,9 @@ function Signup({ onSignup }) {
               </label>
             </div>
 
-            <button type="submit" style={styles.button}>Create Free Account</button>
+            <button type="submit" style={styles.button} disabled={loading}>
+              {loading ? 'Creating account...' : 'Create Free Account'}
+            </button>
           </form>
           <p style={styles.switchText}>
             Already have an account?{' '}
