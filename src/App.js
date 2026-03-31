@@ -17,52 +17,60 @@ function App() {
   const [isNewUser, setIsNewUser] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Fetch profile outside the auth callback so we never await a Supabase
+  // call inside onAuthStateChange (which holds the navigator lock and causes
+  // a deadlock in Supabase JS v2).
+  const fetchAndStoreProfile = async (userId) => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (data) {
+        if (data.full_name) sessionStorage.setItem('userFirstName', data.full_name.split(' ')[0]);
+        if (data.country) sessionStorage.setItem('userCountry', data.country);
+        setProfile(data);
+      }
+    } catch (_) {
+      // Profile fetch failed — app still renders, just without profile data.
+    }
+  };
+
   useEffect(() => {
-    // Single source of truth for auth state. onAuthStateChange fires INITIAL_SESSION
-    // immediately on mount (equivalent to getSession), then fires for every subsequent
-    // auth event. We deliberately avoid calling getSession separately to prevent
-    // duplicate profile fetches.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!session?.user) {
-        // Signed out or no session at all
+    // Step 1: getSession() for the initial page load. This runs outside the
+    // auth lock so it is safe to await a profile fetch here.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        await fetchAndStoreProfile(session.user.id);
+      }
+      // Always clear the loading screen, regardless of outcome.
+      setLoading(false);
+    }).catch(() => {
+      // getSession itself failed (network error etc.) — still clear loading.
+      setLoading(false);
+    });
+
+    // Step 2: onAuthStateChange for subsequent events (login, logout, token
+    // refresh). The callback is kept synchronous — no await, no Supabase
+    // calls inside it — to avoid the deadlock described above.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        setUser(session.user);
+        // Fire the profile fetch without awaiting it. State updates inside
+        // fetchAndStoreProfile will trigger a re-render once complete.
+        fetchAndStoreProfile(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setProfile(null);
         sessionStorage.removeItem('userFirstName');
         sessionStorage.removeItem('userCountry');
-        if (event === 'INITIAL_SESSION') setLoading(false);
-        return;
-      }
-
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-        // Fetch the full profile before setting user state. This guarantees that every
-        // component (including Footer's jurisdiction-specific content) has the correct
-        // profile on its very first render — no refresh required.
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        const profileData = data || null;
-        if (profileData?.full_name) {
-          sessionStorage.setItem('userFirstName', profileData.full_name.split(' ')[0]);
-        }
-        if (profileData?.country) {
-          sessionStorage.setItem('userCountry', profileData.country);
-        }
-
-        // Set profile BEFORE user. In React 18 these are batched into one render.
-        // In React 17 the brief intermediate render (profile set, user still null)
-        // is invisible — the login/signup page is still showing at that point.
-        setProfile(profileData);
-        setUser(session.user);
-      } else {
-        // TOKEN_REFRESHED, PASSWORD_RECOVERY etc. — update the session token without
-        // re-fetching the profile (it hasn't changed).
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         setUser(session.user);
       }
-
-      if (event === 'INITIAL_SESSION') setLoading(false);
+      // INITIAL_SESSION is handled by getSession() above — ignore it here
+      // to avoid a duplicate profile fetch on mount.
     });
 
     return () => subscription.unsubscribe();
@@ -70,8 +78,6 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    // onAuthStateChange will also clear state via SIGNED_OUT, but we set it here
-    // too so the UI updates immediately without waiting for the event.
     setUser(null);
     setProfile(null);
     setIsNewUser(false);
