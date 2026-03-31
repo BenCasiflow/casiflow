@@ -77,7 +77,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   const [showFeedback, setShowFeedback] = useState(false);
   const [showNotification, setShowNotification] = useState(true);
   const [activeNav, setActiveNav] = useState('dashboard');
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
   const [expandedCasinos, setExpandedCasinos] = useState({});
   const [addTransactionCasino, setAddTransactionCasino] = useState(null);
   const [editingCasinoId, setEditingCasinoId] = useState(null);
@@ -87,9 +87,10 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   const firstName = sessionStorage.getItem('userFirstName') || profile?.full_name?.split(' ')[0] || '';
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
   }, []);
 
   useEffect(() => {
@@ -931,7 +932,7 @@ const styles = {
   limitRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
   limitLabel: { color: '#374151', fontWeight: '600', margin: 0, fontSize: '13px' },
   limitInputRow: { display: 'flex', alignItems: 'center', gap: '6px' },
-  limitInput: { width: '80px', padding: '5px 8px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px' },
+  limitInput: { width: '80px', padding: '5px 8px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '16px' },
   limitCurrency: { color: '#64748b', fontSize: '13px' },
   progressBar: { height: '10px', backgroundColor: '#f1f5f9', borderRadius: '5px', overflow: 'hidden', marginBottom: '6px' },
   progressFill: { height: '100%', borderRadius: '5px', transition: 'width 0.3s ease', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '6px' },
@@ -974,7 +975,7 @@ const styles = {
   searchRow: { marginBottom: '14px' },
   searchWrapper: { position: 'relative', display: 'flex', alignItems: 'center' },
   searchIcon: { position: 'absolute', left: '12px' },
-  searchInput: { width: '100%', padding: '10px 14px 10px 36px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box', backgroundColor: '#f8fafc' },
+  searchInput: { width: '100%', padding: '10px 14px 10px 36px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '16px', boxSizing: 'border-box', backgroundColor: '#f8fafc' },
   emptyState: { textAlign: 'center', padding: '32px 0' },
   emptyTitle: { color: '#1e293b', fontSize: '15px', fontWeight: '600', margin: '12px 0 6px 0' },
   emptyText: { color: '#94a3b8', fontSize: '13px', margin: '0 0 14px 0' },
@@ -988,7 +989,7 @@ const styles = {
   casinoName: { margin: 0, color: '#0f172a', fontSize: '15px', fontWeight: '700' },
   editNameBtn: { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', opacity: 0.5 },
   editNameRow: { display: 'flex', alignItems: 'center', gap: '4px' },
-  editNameInput: { padding: '4px 8px', border: '1px solid #0ea5e9', borderRadius: '6px', fontSize: '14px', fontWeight: '700', width: '160px' },
+  editNameInput: { padding: '4px 8px', border: '1px solid #0ea5e9', borderRadius: '6px', fontSize: '16px', fontWeight: '700', width: '160px' },
   editActionBtn: { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' },
   lastActivity: { color: '#94a3b8', fontSize: '11px', display: 'block', marginTop: '2px' },
   casinoHeaderRight: { display: 'flex', alignItems: 'center', gap: '10px' },
@@ -1008,7 +1009,7 @@ const styles = {
   barStatValue: { color: '#0f172a', fontSize: '12px', fontWeight: '700' },
   casinoStats: { display: 'flex', gap: '14px', color: '#64748b', fontSize: '12px', marginBottom: '10px', flexWrap: 'wrap' },
   casinoStatsMobile: { display: 'flex', gap: '10px', color: '#64748b', fontSize: '12px', marginBottom: '10px', flexWrap: 'wrap' },
-  noteInput: { width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px', color: '#64748b', boxSizing: 'border-box', backgroundColor: 'white', marginBottom: '8px' },
+  noteInput: { width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '16px', color: '#64748b', boxSizing: 'border-box', backgroundColor: 'white', marginBottom: '8px' },
   casinoGameStats: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' },
   gameTag: { backgroundColor: '#f0f9ff', color: '#0369a1', fontSize: '11px', padding: '3px 8px', borderRadius: '20px', fontWeight: '500' },
   casinoActionsRow: { display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' },
@@ -1036,7 +1037,7 @@ const styles = {
   bottomNavLabel: { fontSize: '10px', fontWeight: '500' },
   feedbackBtn: { position: 'fixed', bottom: '24px', right: '24px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '24px', padding: '12px 20px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', boxShadow: '0 4px 12px rgba(14,165,233,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', gap: '8px' },
   feedbackModal: { position: 'fixed', bottom: '80px', right: '24px', backgroundColor: 'white', borderRadius: '12px', padding: '20px', width: '300px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', zIndex: 200 },
-  feedbackInput: { width: '100%', height: '80px', padding: '8px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', resize: 'none', boxSizing: 'border-box', marginBottom: '12px' },
+  feedbackInput: { width: '100%', height: '80px', padding: '8px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '16px', resize: 'none', boxSizing: 'border-box', marginBottom: '12px' },
   feedbackActions: { display: 'flex', justifyContent: 'flex-end', gap: '8px' },
   cancelBtn: { padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', backgroundColor: 'white', fontSize: '13px' },
   submitBtn: { padding: '6px 14px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' },

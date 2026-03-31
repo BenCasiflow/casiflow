@@ -181,7 +181,7 @@ function AddCasino({ user, profile, onLogout }) {
   const [inputMode, setInputMode] = useState('lifetime');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
 
   const [csvFile, setCsvFile] = useState(null);
   const [csvFileName, setCsvFileName] = useState('');
@@ -206,9 +206,10 @@ function AddCasino({ user, profile, onLogout }) {
   });
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
   }, []);
 
   const fetchExistingCasinos = useCallback(async () => {
