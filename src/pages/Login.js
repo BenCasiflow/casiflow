@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { BarChart2, Target, TrendingUp, Lock } from 'lucide-react';
 
 function Login() {
   const navigate = useNavigate();
@@ -60,19 +61,19 @@ function Login() {
             <p style={styles.brandTagline}>The house always has the edge — unless you know your numbers. Track smarter with Casiflow.</p>
             <div style={styles.features}>
               <div style={styles.feature}>
-                <span style={styles.featureIcon}>📊</span>
+                <span style={styles.featureIcon}><BarChart2 size={20} color="rgba(255,255,255,0.85)" /></span>
                 <span style={styles.featureText}>Unified dashboard across all casinos</span>
               </div>
               <div style={styles.feature}>
-                <span style={styles.featureIcon}>🎯</span>
+                <span style={styles.featureIcon}><Target size={20} color="rgba(255,255,255,0.85)" /></span>
                 <span style={styles.featureText}>Set and track your personal spending limits</span>
               </div>
               <div style={styles.feature}>
-                <span style={styles.featureIcon}>📈</span>
+                <span style={styles.featureIcon}><TrendingUp size={20} color="rgba(255,255,255,0.85)" /></span>
                 <span style={styles.featureText}>Detailed performance insights per casino</span>
               </div>
               <div style={styles.feature}>
-                <span style={styles.featureIcon}>🔒</span>
+                <span style={styles.featureIcon}><Lock size={20} color="rgba(255,255,255,0.85)" /></span>
                 <span style={styles.featureText}>Your data is private</span>
               </div>
             </div>
