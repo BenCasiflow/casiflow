@@ -353,7 +353,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
             </div>
           )}
         </div>
-        <Footer country={profile?.country} />
+        <Footer jurisdiction={profile?.country} />
       </div>
 
       {isMobile && (

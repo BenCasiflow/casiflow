@@ -69,7 +69,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   const [loading, setLoading] = useState(true);
   const [monthlyDepositLimit, setMonthlyDepositLimit] = useState(0);
   const [monthlyNetLossLimit, setMonthlyNetLossLimit] = useState(0);
-  const [timeFilter, setTimeFilter] = useState('This Month');
+  const [timeFilter, setTimeFilter] = useState('All Time');
   const [casinoFilters, setCasinoFilters] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -254,7 +254,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
 
   const currency = profile?.currency || 'EUR';
   const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'SEK' ? 'kr' : currency === 'DKK' ? 'kr' : '€';
-  const timeFilters = ['Last 24hrs', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'Last 6 Months', 'Last Year', 'All Time'];
+  const timeFilters = ['All Time', 'Last 24hrs', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'Last 6 Months', 'Last Year'];
 
   const globalRange = useMemo(() => getDateRange(timeFilter), [timeFilter]);
   const globalFilteredTransactions = useMemo(() => filterByDateRange(allTransactions, globalRange), [allTransactions, globalRange]);
@@ -264,7 +264,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
 
   const totalCurrentBalance = casinos.reduce((sum, c) => sum + c.currentBalance, 0);
   const netLoss = limitTotals.deposits - limitTotals.withdrawals - totalCurrentBalance;
-  const netResult = globalTotals.withdrawals - globalTotals.deposits;
+  const netResult = globalTotals.withdrawals + totalCurrentBalance - globalTotals.deposits;
 
   const depositLimitPercent = monthlyDepositLimit > 0 ? Math.min((limitTotals.deposits / monthlyDepositLimit) * 100, 100) : 0;
   const netLossLimitPercent = monthlyNetLossLimit > 0 ? Math.min((Math.max(0, netLoss) / monthlyNetLossLimit) * 100, 100) : 0;
@@ -523,10 +523,10 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
             </p>
             <p style={styles.statSub}>{netResult >= 0 ? 'you are up' : 'you are down'}</p>
           </div>
-          <div style={{ ...styles.statCard, backgroundColor: '#fefce8', borderLeft: '4px solid #eab308' }}>
-            <p style={styles.statLabel}>Bonus Balance</p>
-            <p style={{ ...styles.statValue, color: '#ca8a04' }}>{symbol}{globalTotals.bonuses.toLocaleString()}</p>
-            <p style={styles.statSub}>total bonuses received</p>
+          <div style={{ ...styles.statCard, backgroundColor: '#f0f9ff', borderLeft: '4px solid #0ea5e9' }}>
+            <p style={styles.statLabel}>Total Balance</p>
+            <p style={{ ...styles.statValue, color: '#0369a1' }}>{symbol}{totalCurrentBalance.toLocaleString()}</p>
+            <p style={styles.statSub}>across all casinos</p>
           </div>
         </div>
 
@@ -835,7 +835,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
           )}
         </div>
 
-        <Footer country={profile?.country} />
+        <Footer jurisdiction={profile?.country} />
       </div>
 
       {isMobile && (
