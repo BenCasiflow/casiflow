@@ -28,6 +28,7 @@ function App() {
         setUser(null);
         setProfile(null);
         sessionStorage.removeItem('userFirstName');
+        sessionStorage.removeItem('userCountry');
         if (event === 'INITIAL_SESSION') setLoading(false);
         return;
       }
@@ -45,6 +46,9 @@ function App() {
         const profileData = data || null;
         if (profileData?.full_name) {
           sessionStorage.setItem('userFirstName', profileData.full_name.split(' ')[0]);
+        }
+        if (profileData?.country) {
+          sessionStorage.setItem('userCountry', profileData.country);
         }
 
         // Set profile BEFORE user. In React 18 these are batched into one render.
@@ -73,6 +77,7 @@ function App() {
     setIsNewUser(false);
     sessionStorage.removeItem('newUserName');
     sessionStorage.removeItem('userFirstName');
+    sessionStorage.removeItem('userCountry');
   };
 
   const handleSignupComplete = () => {
@@ -99,7 +104,7 @@ function App() {
       <Routes>
         <Route path="/" element={user ? <Navigate to={isNewUser ? "/onboarding" : "/dashboard"} /> : <Login />} />
         <Route path="/signup" element={user ? <Navigate to={isNewUser ? "/onboarding" : "/dashboard"} /> : <Signup onSignupComplete={handleSignupComplete} />} />
-        <Route path="/onboarding" element={user && isNewUser ? <Onboarding user={user} profile={profile} onComplete={handleOnboardingComplete} /> : <Navigate to={user ? "/dashboard" : "/"} />} />
+        <Route path="/onboarding" element={isNewUser || sessionStorage.getItem('newUserName') ? <Onboarding user={user} profile={profile} onComplete={handleOnboardingComplete} /> : <Navigate to={user ? "/dashboard" : "/"} />} />
         <Route path="/dashboard" element={user ? <Dashboard user={user} profile={profile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} /> : <Navigate to="/" />} />
         <Route path="/add-casino" element={user ? <AddCasino user={user} profile={profile} onLogout={handleLogout} /> : <Navigate to="/" />} />
         <Route path="/profile" element={user ? <Profile user={user} profile={profile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} /> : <Navigate to="/" />} />

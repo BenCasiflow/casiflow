@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 function Signup({ onSignupComplete }) {
+  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -124,10 +125,10 @@ function Signup({ onSignupComplete }) {
     // can show it instantly without waiting for Supabase
     sessionStorage.setItem('newUserName', name);
     sessionStorage.setItem('userFirstName', name.split(' ')[0]);
+    sessionStorage.setItem('userCountry', jurisdiction);
 
     onSignupComplete(name);
-    // App.js's onAuthStateChange fetches the full profile then sets user state,
-    // which causes the route guard at "/signup" to redirect to "/onboarding".
+    navigate('/onboarding');
   };
 
   return (

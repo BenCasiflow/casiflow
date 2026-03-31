@@ -53,7 +53,8 @@ function Footer({ jurisdiction }) {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  const rg = rgResources[jurisdiction] || rgResources['default'];
+  const country = jurisdiction || sessionStorage.getItem('userCountry') || null;
+  const rg = rgResources[country] || rgResources['default'];
 
   if (isMobile) {
     return (
