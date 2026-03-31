@@ -578,7 +578,7 @@ const styles = {
   rowField: { display: 'flex', flexDirection: 'column', gap: '5px' },
   field: { display: 'flex', flexDirection: 'column', gap: '5px' },
   label: { display: 'flex', alignItems: 'center', gap: '5px', color: '#374151', fontSize: '12px', fontWeight: '600' },
-  input: { width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box', backgroundColor: '#f8fafc', color: '#1e293b' },
+  input: { width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '16px', boxSizing: 'border-box', backgroundColor: '#f8fafc', color: '#1e293b' },
   addRowBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', padding: '10px', backgroundColor: 'white', border: '2px dashed #e2e8f0', borderRadius: '10px', color: '#0ea5e9', fontSize: '13px', fontWeight: '600', cursor: 'pointer' },
   actions: { display: 'flex', gap: '10px', marginTop: '4px' },
   cancelBtn: { flex: 1, padding: '12px', backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '14px', fontWeight: '600', color: '#64748b', cursor: 'pointer' },
