@@ -280,7 +280,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   }, [casinos, globalRange]);
 
   const mostPlayed = casinoSummaries.length > 0 ? [...casinoSummaries].sort((a, b) => b.deposits - a.deposits)[0] : null;
-  const mostProfitable = casinoSummaries.length > 0 ? [...casinoSummaries].sort((a, b) => (b.withdrawals - b.deposits) - (a.withdrawals - a.deposits))[0] : null;
+  const mostProfitable = casinoSummaries.length > 0 ? [...casinoSummaries].sort((a, b) => (b.withdrawals + b.currentBalance - b.deposits) - (a.withdrawals + a.currentBalance - a.deposits))[0] : null;
 
   const chartData = casinoSummaries.map(c => ({ name: c.name, Deposits: c.deposits, Withdrawals: c.withdrawals }));
 
