@@ -17,33 +17,48 @@ function App() {
   const [isNewUser, setIsNewUser] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    if (!error && data) {
-      setProfile(data);
-      if (data.full_name) {
-        sessionStorage.setItem('userFirstName', data.full_name.split(' ')[0]);
-      }
-    }
-  };
-
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
+    // Single source of truth for auth state. onAuthStateChange fires INITIAL_SESSION
+    // immediately on mount (equivalent to getSession), then fires for every subsequent
+    // auth event. We deliberately avoid calling getSession separately to prevent
+    // duplicate profile fetches.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!session?.user) {
+        // Signed out or no session at all
+        setUser(null);
+        setProfile(null);
+        sessionStorage.removeItem('userFirstName');
+        if (event === 'INITIAL_SESSION') setLoading(false);
+        return;
       }
-      setLoading(false);
-    });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else setProfile(null);
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        // Fetch the full profile before setting user state. This guarantees that every
+        // component (including Footer's jurisdiction-specific content) has the correct
+        // profile on its very first render — no refresh required.
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        const profileData = data || null;
+        if (profileData?.full_name) {
+          sessionStorage.setItem('userFirstName', profileData.full_name.split(' ')[0]);
+        }
+
+        // Set profile BEFORE user. In React 18 these are batched into one render.
+        // In React 17 the brief intermediate render (profile set, user still null)
+        // is invisible — the login/signup page is still showing at that point.
+        setProfile(profileData);
+        setUser(session.user);
+      } else {
+        // TOKEN_REFRESHED, PASSWORD_RECOVERY etc. — update the session token without
+        // re-fetching the profile (it hasn't changed).
+        setUser(session.user);
+      }
+
+      if (event === 'INITIAL_SESSION') setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -51,6 +66,8 @@ function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    // onAuthStateChange will also clear state via SIGNED_OUT, but we set it here
+    // too so the UI updates immediately without waiting for the event.
     setUser(null);
     setProfile(null);
     setIsNewUser(false);
@@ -58,7 +75,7 @@ function App() {
     sessionStorage.removeItem('userFirstName');
   };
 
-  const handleSignupComplete = (name) => {
+  const handleSignupComplete = () => {
     setIsNewUser(true);
   };
 

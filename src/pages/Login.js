@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { BarChart2, Target, TrendingUp, Lock } from 'lucide-react';
 
 function Login() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -29,7 +28,7 @@ function Login() {
 
     setLoading(true);
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (signInError) {
       setError('Incorrect email or password. Please try again.');
@@ -37,20 +36,10 @@ function Login() {
       return;
     }
 
-    // Fetch the player's name immediately and store it in sessionStorage
-    // so the Dashboard can show it instantly without waiting for the profile fetch
-    if (data?.user) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', data.user.id)
-        .single();
-      if (profileData?.full_name) {
-        sessionStorage.setItem('userFirstName', profileData.full_name.split(' ')[0]);
-      }
-    }
-
-    navigate('/dashboard');
+    // On success, App.js's onAuthStateChange fetches the full profile (including
+    // country) and sets both profile and user state before triggering navigation.
+    // The route guard at "/" then redirects automatically. We leave loading=true
+    // so the button shows "Logging in..." until the page transitions.
   };
 
   return (
