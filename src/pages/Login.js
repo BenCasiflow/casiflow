@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { BarChart2, Target, TrendingUp, Lock } from 'lucide-react';
 
 function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,7 +29,7 @@ function Login() {
 
     setLoading(true);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (signInError) {
       setError('Incorrect email or password. Please try again.');
@@ -36,10 +37,28 @@ function Login() {
       return;
     }
 
-    // On success, App.js's onAuthStateChange fetches the full profile (including
-    // country) and sets both profile and user state before triggering navigation.
-    // The route guard at "/" then redirects automatically. We leave loading=true
-    // so the button shows "Logging in..." until the page transitions.
+    // Fetch the profile synchronously before navigating. This guarantees that
+    // userFirstName and userCurrency are in sessionStorage before Dashboard
+    // renders — so the correct currency and greeting appear on the very first
+    // render with no flash of wrong values.
+    if (data?.user) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name, currency, country')
+        .eq('id', data.user.id)
+        .single();
+      if (profileData?.full_name) {
+        sessionStorage.setItem('userFirstName', profileData.full_name.split(' ')[0]);
+      }
+      if (profileData?.currency) {
+        sessionStorage.setItem('userCurrency', profileData.currency);
+      }
+      if (profileData?.country) {
+        sessionStorage.setItem('userCountry', profileData.country);
+      }
+    }
+
+    navigate('/dashboard');
   };
 
   return (

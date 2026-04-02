@@ -30,6 +30,7 @@ function App() {
       if (data) {
         if (data.full_name) sessionStorage.setItem('userFirstName', data.full_name.split(' ')[0]);
         if (data.country) sessionStorage.setItem('userCountry', data.country);
+        if (data.currency) sessionStorage.setItem('userCurrency', data.currency);
         setProfile(data);
       }
     } catch (_) {
@@ -66,6 +67,7 @@ function App() {
         setProfile(null);
         sessionStorage.removeItem('userFirstName');
         sessionStorage.removeItem('userCountry');
+        sessionStorage.removeItem('userCurrency');
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         setUser(session.user);
       }
@@ -84,6 +86,7 @@ function App() {
     sessionStorage.removeItem('newUserName');
     sessionStorage.removeItem('userFirstName');
     sessionStorage.removeItem('userCountry');
+    sessionStorage.removeItem('userCurrency');
   };
 
   const handleSignupComplete = () => {

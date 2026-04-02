@@ -126,6 +126,7 @@ function Signup({ onSignupComplete }) {
     sessionStorage.setItem('newUserName', name);
     sessionStorage.setItem('userFirstName', name.split(' ')[0]);
     sessionStorage.setItem('userCountry', jurisdiction);
+    sessionStorage.setItem('userCurrency', currency);
 
     onSignupComplete(name);
     navigate('/onboarding');

@@ -286,7 +286,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
                   <div style={styles.field}>
                     <label style={styles.label}>Monthly Net Loss Limit ({symbol})</label>
                     <input style={styles.input} type="number" value={monthlyNetLossLimit} onChange={(e) => setMonthlyNetLossLimit(e.target.value)} placeholder="e.g. 500" />
-                    <p style={styles.fieldHint}>Maximum net loss (deposits - withdrawals - balance) per month</p>
+                    <p style={styles.fieldHint}>Maximum net loss (deposits minus withdrawals) for the current calendar month</p>
                   </div>
                 </div>
                 <button type="submit" style={styles.saveBtn}>{limitsSaved ? '✓ Limits Saved!' : 'Save Limits'}</button>

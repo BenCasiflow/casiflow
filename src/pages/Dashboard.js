@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Building2, User, Download, Bell, Search, Star, MessageSquare, LogOut, Plus, ChevronDown, ChevronUp, Trash2, Edit2, Check, X } from 'lucide-react';
+import { LayoutDashboard, Building2, User, Download, Bell, Search, Star, MessageSquare, LogOut, Plus, ChevronDown, ChevronUp, Trash2, Edit2, Check, X, Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
 import AddTransactionModal from '../components/AddTransactionModal';
@@ -8,38 +8,52 @@ import Footer from '../components/Footer';
 
 function getDateRange(filter) {
   const now = new Date();
-  const start = new Date();
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
+  let start, end;
   switch (filter) {
     case 'Last 24hrs':
+      start = new Date(now);
       start.setHours(now.getHours() - 24, now.getMinutes(), now.getSeconds(), 0);
-      break;
-    case 'Last Week':
-      start.setDate(now.getDate() - 7);
-      start.setHours(0, 0, 0, 0);
-      break;
-    case 'This Month':
-      start.setDate(1);
-      start.setHours(0, 0, 0, 0);
-      break;
-    case 'Last Month':
-      start.setMonth(now.getMonth() - 1, 1);
-      start.setHours(0, 0, 0, 0);
-      end.setDate(0);
+      end = new Date(now);
       end.setHours(23, 59, 59, 999);
       break;
+    case 'Last Week':
+      start = new Date(now);
+      start.setDate(now.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case 'This Month':
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case 'Last Month':
+      // First day of last month
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+      // Last day of last month = day 0 of current month
+      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      break;
     case 'Last 3 Months':
+      start = new Date(now);
       start.setMonth(now.getMonth() - 3);
       start.setHours(0, 0, 0, 0);
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
       break;
     case 'Last 6 Months':
+      start = new Date(now);
       start.setMonth(now.getMonth() - 6);
       start.setHours(0, 0, 0, 0);
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
       break;
     case 'Last Year':
+      start = new Date(now);
       start.setFullYear(now.getFullYear() - 1);
       start.setHours(0, 0, 0, 0);
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
       break;
     case 'All Time':
     default:
@@ -252,32 +266,69 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
     setExpandedCasinos(prev => ({ ...prev, [casinoId]: !prev[casinoId] }));
   };
 
-  const currency = profile?.currency || 'EUR';
+  const currency = profile?.currency || sessionStorage.getItem('userCurrency') || 'EUR';
   const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'SEK' ? 'kr' : currency === 'DKK' ? 'kr' : '€';
   const timeFilters = ['All Time', 'Last 24hrs', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'Last 6 Months', 'Last Year'];
 
   const globalRange = useMemo(() => getDateRange(timeFilter), [timeFilter]);
-  const globalFilteredTransactions = useMemo(() => filterByDateRange(allTransactions, globalRange), [allTransactions, globalRange]);
-  const datedTransactions = useMemo(() => globalFilteredTransactions.filter(t => t.entry_method !== 'lifetime'), [globalFilteredTransactions]);
-  const globalTotals = useMemo(() => calcTotals(globalFilteredTransactions), [globalFilteredTransactions]);
-  const limitTotals = useMemo(() => calcTotals(datedTransactions), [datedTransactions]);
+  const isAllTime = timeFilter === 'All Time';
+
+  // For All Time: include all transactions (dated + lifetime).
+  // For any other filter: include only dated (non-lifetime) transactions within
+  // the selected period. Lifetime totals are stored against today's date and have
+  // no meaningful period association, so they must be excluded from period views.
+  const summaryTransactions = useMemo(() => {
+    if (isAllTime) return allTransactions;
+    return allTransactions.filter(t => t.entry_method !== 'lifetime' && (() => {
+      const d = new Date(t.date);
+      return d >= globalRange.start && d <= globalRange.end;
+    })());
+  }, [allTransactions, isAllTime, globalRange]);
+
+  // currentMonthTransactions: always the current calendar month, always excludes
+  // lifetime entries. Used exclusively for the deposit and net loss limit trackers
+  // so they remain independent of whichever dashboard time filter is selected.
+  const currentMonthTransactions = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return allTransactions.filter(t => {
+      if (t.entry_method === 'lifetime') return false;
+      const d = new Date(t.date);
+      return d >= start && d <= end;
+    });
+  }, [allTransactions]);
+
+  const globalTotals = useMemo(() => calcTotals(summaryTransactions), [summaryTransactions]);
+  const currentMonthTotals = useMemo(() => calcTotals(currentMonthTransactions), [currentMonthTransactions]);
 
   const totalCurrentBalance = casinos.reduce((sum, c) => sum + c.currentBalance, 0);
-  const netLoss = limitTotals.deposits - limitTotals.withdrawals - totalCurrentBalance;
-  const netResult = globalTotals.withdrawals + totalCurrentBalance - globalTotals.deposits;
+  // Monthly net loss = deposits this month minus withdrawals this month.
+  // Balance is a current snapshot across all time and is not factored in here.
+  const monthlyNetLoss = currentMonthTotals.deposits - currentMonthTotals.withdrawals;
+  // All Time net: withdrawals + current balance - deposits (balance is meaningful here).
+  // Period net: withdrawals - deposits only (balance is a current snapshot, not period performance).
+  const netResult = isAllTime
+    ? globalTotals.withdrawals + totalCurrentBalance - globalTotals.deposits
+    : globalTotals.withdrawals - globalTotals.deposits;
 
-  const depositLimitPercent = monthlyDepositLimit > 0 ? Math.min((limitTotals.deposits / monthlyDepositLimit) * 100, 100) : 0;
-  const netLossLimitPercent = monthlyNetLossLimit > 0 ? Math.min((Math.max(0, netLoss) / monthlyNetLossLimit) * 100, 100) : 0;
+  const depositLimitPercent = monthlyDepositLimit > 0 ? Math.min((currentMonthTotals.deposits / monthlyDepositLimit) * 100, 100) : 0;
+  const netLossLimitPercent = monthlyNetLossLimit > 0 ? Math.min((Math.max(0, monthlyNetLoss) / monthlyNetLossLimit) * 100, 100) : 0;
 
   const hasLifetimeOnlyCasinos = casinos.some(c => c.hasOnlyLifetime);
+  const allCasinosAreLifetimeOnly = casinos.length > 0 && casinos.every(c => c.hasOnlyLifetime);
 
   const casinoSummaries = useMemo(() => {
     return casinos.map(c => {
-      const filtered = filterByDateRange(c.transactions, globalRange);
+      // For non-All Time filters, exclude lifetime transactions from the card totals.
+      // They have no period date association and would distort the period view.
+      const filtered = isAllTime
+        ? filterByDateRange(c.transactions, globalRange)
+        : filterByDateRange(c.transactions.filter(t => t.entry_method !== 'lifetime'), globalRange);
       const totals = calcTotals(filtered);
       return { ...c, ...totals };
     });
-  }, [casinos, globalRange]);
+  }, [casinos, globalRange, isAllTime]);
 
   const mostPlayed = casinoSummaries.length > 0 ? [...casinoSummaries].sort((a, b) => b.deposits - a.deposits)[0] : null;
   const mostProfitable = casinoSummaries.length > 0 ? [...casinoSummaries].sort((a, b) => (b.withdrawals + b.currentBalance - b.deposits) - (a.withdrawals + a.currentBalance - a.deposits))[0] : null;
@@ -467,11 +518,6 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
           </div>
         )}
 
-        {hasLifetimeOnlyCasinos && (
-          <div style={styles.lifetimeNoticeBanner}>
-            Some of your casinos use lifetime totals. Monthly limit tracking only applies to individually dated transactions.
-          </div>
-        )}
 
         <div style={isMobile ? styles.heroBannerMobile : styles.heroBanner}>
           <div style={styles.heroLeft}>
@@ -530,6 +576,18 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
           </div>
         </div>
 
+        {!isAllTime && casinos.length > 0 && hasLifetimeOnlyCasinos && (
+          <div style={isMobile ? styles.lifetimeFilterBannerMobile : styles.lifetimeFilterBanner}>
+            <Info size={16} color="#0369a1" style={{ flexShrink: 0, marginTop: '1px' }} />
+            <p style={styles.lifetimeFilterBannerText}>
+              {allCasinosAreLifetimeOnly
+                ? <>You have no dated transactions for this period. Your lifetime totals are visible under <button style={styles.lifetimeFilterBannerLink} onClick={() => setTimeFilter('All Time')}>All Time</button>.</>
+                : <>Some casinos use lifetime totals and are not included in this period filter. <button style={styles.lifetimeFilterBannerLink} onClick={() => setTimeFilter('All Time')}>Switch to All Time</button> to see your complete picture.</>
+              }
+            </p>
+          </div>
+        )}
+
         <div style={isMobile ? styles.limitsRowMobile : styles.limitsRow}>
           <div style={styles.limitCard}>
             <div style={styles.limitRow}>
@@ -544,7 +602,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
                 {depositLimitPercent > 15 && <span style={styles.progressLabel}>{depositLimitPercent.toFixed(0)}%</span>}
               </div>
             </div>
-            <p style={styles.limitText}>{symbol}{limitTotals.deposits.toLocaleString()} deposited of {symbol}{monthlyDepositLimit.toLocaleString()} limit{hasLifetimeOnlyCasinos ? ' (dated transactions only)' : ''}</p>
+            <p style={styles.limitText}>{symbol}{currentMonthTotals.deposits.toLocaleString()} deposited this month of {symbol}{monthlyDepositLimit.toLocaleString()} limit (current month only)</p>
           </div>
           <div style={styles.limitCard}>
             <div style={styles.limitRow}>
@@ -559,7 +617,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
                 {netLossLimitPercent > 15 && <span style={styles.progressLabel}>{netLossLimitPercent.toFixed(0)}%</span>}
               </div>
             </div>
-            <p style={styles.limitText}>{symbol}{Math.max(0, netLoss).toLocaleString()} net loss of {symbol}{monthlyNetLossLimit.toLocaleString()} limit{hasLifetimeOnlyCasinos ? ' (dated transactions only)' : ''}</p>
+            <p style={styles.limitText}>{symbol}{Math.max(0, monthlyNetLoss).toLocaleString()} net loss this month of {symbol}{monthlyNetLossLimit.toLocaleString()} limit (current month only)</p>
           </div>
         </div>
 
@@ -736,7 +794,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
                   </div>
 
                   {casino.hasOnlyLifetime && casinoFilter !== 'All Time' && (
-                    <p style={styles.casinoLifetimeNote}>This casino uses lifetime totals — time filtering is not available.</p>
+                    <p style={styles.casinoLifetimeNote}>You have no dated transactions for this period. Your lifetime totals are visible under All Time.</p>
                   )}
 
                   <div style={styles.casinoBarRow}>
@@ -905,6 +963,10 @@ const styles = {
   notificationBanner: { padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0' },
   notificationClose: { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#64748b', flexShrink: 0 },
   lifetimeNoticeBanner: { padding: '10px 16px', backgroundColor: '#f0f9ff', borderBottom: '1px solid #bae6fd', fontSize: '13px', color: '#0369a1' },
+  lifetimeFilterBanner: { display: 'flex', alignItems: 'flex-start', gap: '10px', margin: '12px 28px 0 28px', padding: '12px 14px', backgroundColor: '#e0f2fe', border: '1px solid #0ea5e9', borderRadius: '10px' },
+  lifetimeFilterBannerMobile: { display: 'flex', alignItems: 'flex-start', gap: '10px', margin: '10px 16px 0 16px', padding: '10px 12px', backgroundColor: '#e0f2fe', border: '1px solid #0ea5e9', borderRadius: '10px' },
+  lifetimeFilterBannerText: { color: '#0369a1', fontSize: '13px', margin: 0, lineHeight: '1.5' },
+  lifetimeFilterBannerLink: { background: 'none', border: 'none', color: '#0369a1', fontSize: '13px', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontWeight: '600' },
   heroBanner: { background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', padding: '32px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   heroBannerMobile: { background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', padding: '24px 16px' },
   heroLeft: {},

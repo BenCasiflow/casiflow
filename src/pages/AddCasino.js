@@ -232,7 +232,7 @@ function AddCasino({ user, profile, onLogout }) {
     fetchExistingCasinos();
   }, [fetchExistingCasinos]);
 
-  const currency = profile?.currency || 'EUR';
+  const currency = profile?.currency || sessionStorage.getItem('userCurrency') || 'EUR';
   const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'SEK' ? 'kr' : currency === 'DKK' ? 'kr' : '€';
   const gameTypes = ['Slots', 'Live Casino', 'Blackjack', 'Roulette', 'Poker', 'Baccarat', 'Sports Betting', 'Other'];
 
