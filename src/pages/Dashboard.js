@@ -627,30 +627,36 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
 
         {casinos.length === 0 ? (
           <div style={isMobile ? styles.emptyDashboardMobile : styles.emptyDashboard}>
-            <div style={styles.emptyDashboardContent}>
-              <h3 style={styles.emptyDashboardTitle}>Welcome to Casiflow, {firstName}!</h3>
-              <p style={styles.emptyDashboardText}>Here's how to get started in three simple steps.</p>
+            <div style={isMobile ? styles.emptyDashboardContentMobile : styles.emptyDashboardContent}>
+              <h3 style={isMobile ? styles.emptyDashboardTitleMobile : styles.emptyDashboardTitle}>Welcome to Casiflow, {firstName}!</h3>
+              <p style={isMobile ? styles.emptyDashboardTextMobile : styles.emptyDashboardText}>Here's how to get started in three simple steps.</p>
               <div style={isMobile ? styles.emptyStepsColumnMobile : styles.emptyStepsRow}>
-                <div style={styles.emptyStepCard}>
-                  <div style={styles.emptyStepIcon}><Building2 size={26} color="#0ea5e9" /></div>
-                  <p style={styles.emptyStepNumber}>Step 1</p>
-                  <p style={styles.emptyStepTitle}>Add Your Casinos</p>
-                  <p style={styles.emptyStepDesc}>Add each casino where you have an account.</p>
+                <div style={isMobile ? styles.emptyStepCardMobile : styles.emptyStepCard}>
+                  <div style={isMobile ? styles.emptyStepIconMobile : styles.emptyStepIcon}><Building2 size={isMobile ? 18 : 26} color="#0ea5e9" /></div>
+                  <div style={isMobile ? styles.emptyStepTextMobile : undefined}>
+                    <p style={isMobile ? styles.emptyStepNumberMobile : styles.emptyStepNumber}>Step 1</p>
+                    <p style={isMobile ? styles.emptyStepTitleMobile : styles.emptyStepTitle}>Add Your Casinos</p>
+                    <p style={isMobile ? styles.emptyStepDescMobile : styles.emptyStepDesc}>Add each casino where you have an account.</p>
+                  </div>
                 </div>
-                <div style={styles.emptyStepCard}>
-                  <div style={styles.emptyStepIcon}><FileText size={26} color="#0ea5e9" /></div>
-                  <p style={styles.emptyStepNumber}>Step 2</p>
-                  <p style={styles.emptyStepTitle}>Log Your Activity</p>
-                  <p style={styles.emptyStepDesc}>Record deposits, withdrawals and your current balance.</p>
+                <div style={isMobile ? styles.emptyStepCardMobile : styles.emptyStepCard}>
+                  <div style={isMobile ? styles.emptyStepIconMobile : styles.emptyStepIcon}><FileText size={isMobile ? 18 : 26} color="#0ea5e9" /></div>
+                  <div style={isMobile ? styles.emptyStepTextMobile : undefined}>
+                    <p style={isMobile ? styles.emptyStepNumberMobile : styles.emptyStepNumber}>Step 2</p>
+                    <p style={isMobile ? styles.emptyStepTitleMobile : styles.emptyStepTitle}>Log Your Activity</p>
+                    <p style={isMobile ? styles.emptyStepDescMobile : styles.emptyStepDesc}>Record deposits, withdrawals and your current balance.</p>
+                  </div>
                 </div>
-                <div style={styles.emptyStepCard}>
-                  <div style={styles.emptyStepIcon}><TrendingUp size={26} color="#0ea5e9" /></div>
-                  <p style={styles.emptyStepNumber}>Step 3</p>
-                  <p style={styles.emptyStepTitle}>Track Your Position</p>
-                  <p style={styles.emptyStepDesc}>Track your wins, losses and trends per casino. For the first time, you'll know exactly where you stand.</p>
+                <div style={isMobile ? styles.emptyStepCardMobile : styles.emptyStepCard}>
+                  <div style={isMobile ? styles.emptyStepIconMobile : styles.emptyStepIcon}><TrendingUp size={isMobile ? 18 : 26} color="#0ea5e9" /></div>
+                  <div style={isMobile ? styles.emptyStepTextMobile : undefined}>
+                    <p style={isMobile ? styles.emptyStepNumberMobile : styles.emptyStepNumber}>Step 3</p>
+                    <p style={isMobile ? styles.emptyStepTitleMobile : styles.emptyStepTitle}>Track Your Position</p>
+                    <p style={isMobile ? styles.emptyStepDescMobile : styles.emptyStepDesc}>Track your wins, losses and trends per casino. For the first time, you'll know exactly where you stand.</p>
+                  </div>
                 </div>
               </div>
-              <Link to="/add-casino" style={styles.emptyDashboardBtn}>+ Add Your First Casino</Link>
+              <Link to="/add-casino" style={isMobile ? styles.emptyDashboardBtnMobile : styles.emptyDashboardBtn}>+ Add Your First Casino</Link>
             </div>
           </div>
         ) : (
@@ -1019,20 +1025,30 @@ const styles = {
   progressLabel: { color: 'white', fontSize: '9px', fontWeight: '700' },
   limitText: { color: '#94a3b8', fontSize: '11px', margin: 0 },
   emptyDashboard: { margin: '16px 28px 0 28px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
-  emptyDashboardMobile: { margin: '12px 16px 0 16px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  emptyDashboardMobile: { margin: '8px 14px 0 14px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
   emptyDashboardContent: { padding: '28px 20px 28px 20px', textAlign: 'center' },
+  emptyDashboardContentMobile: { padding: '14px 12px 16px 12px', textAlign: 'center' },
   emptyIconWrapper: { width: '72px', height: '72px', backgroundColor: '#f0f9ff', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' },
   emptyHeroSubtitle: { color: 'rgba(255,255,255,0.65)', fontSize: '14px', margin: '8px 0 4px 0', fontWeight: '400' },
   emptyDashboardTitle: { color: '#0f172a', fontSize: '20px', fontWeight: '800', margin: '0 0 6px 0' },
+  emptyDashboardTitleMobile: { color: '#0f172a', fontSize: '16px', fontWeight: '800', margin: '0 0 3px 0' },
   emptyDashboardText: { color: '#475569', fontSize: '15px', fontWeight: '500', lineHeight: '1.5', margin: '0 0 20px 0' },
+  emptyDashboardTextMobile: { color: '#475569', fontSize: '12px', fontWeight: '500', lineHeight: '1.4', margin: '0 0 10px 0' },
   emptyDashboardBtn: { display: 'block', padding: '14px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', borderRadius: '10px', textDecoration: 'none', fontSize: '15px', fontWeight: '700', boxShadow: '0 4px 12px rgba(14,165,233,0.3)', marginTop: '20px', textAlign: 'center', maxWidth: '350px', marginLeft: 'auto', marginRight: 'auto' },
+  emptyDashboardBtnMobile: { display: 'block', padding: '11px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', borderRadius: '10px', textDecoration: 'none', fontSize: '14px', fontWeight: '700', boxShadow: '0 4px 12px rgba(14,165,233,0.3)', marginTop: '10px', textAlign: 'center', maxWidth: '350px', marginLeft: 'auto', marginRight: 'auto' },
   emptyStepsRow: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' },
-  emptyStepsColumnMobile: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  emptyStepsColumnMobile: { display: 'flex', flexDirection: 'column', gap: '6px' },
   emptyStepCard: { backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: '3px solid #0ea5e9', borderRadius: '12px', padding: '14px 14px 16px 14px', textAlign: 'center' },
+  emptyStepCardMobile: { backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: '3px solid #0ea5e9', borderRadius: '10px', padding: '8px 10px 10px 10px', textAlign: 'center', display: 'flex', alignItems: 'center', gap: '10px' },
   emptyStepIcon: { width: '48px', height: '48px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px auto' },
+  emptyStepIconMobile: { width: '36px', height: '36px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   emptyStepNumber: { color: '#0ea5e9', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px 0' },
+  emptyStepNumberMobile: { color: '#0ea5e9', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px 0' },
   emptyStepTitle: { color: '#0f172a', fontSize: '14px', fontWeight: '700', margin: '0 0 6px 0' },
+  emptyStepTitleMobile: { color: '#0f172a', fontSize: '13px', fontWeight: '700', margin: '0 0 3px 0' },
   emptyStepDesc: { color: '#64748b', fontSize: '13px', lineHeight: '1.5', margin: '0' },
+  emptyStepDescMobile: { color: '#64748b', fontSize: '11px', lineHeight: '1.35', margin: '0' },
+  emptyStepTextMobile: { flex: 1, textAlign: 'left' },
   emptyCasinosNote: { color: '#94a3b8', fontSize: '13px', textAlign: 'center', padding: '24px 0', margin: 0 },
   chartsRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '16px 28px 0 28px' },
   chartsRowMobile: { display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px 16px 0 16px' },
