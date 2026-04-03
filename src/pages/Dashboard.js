@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Building2, User, Download, Bell, Search, Star, MessageSquare, LogOut, Plus, ChevronDown, ChevronUp, Trash2, Edit2, Check, X, Info } from 'lucide-react';
+import { LayoutDashboard, Building2, User, Download, Bell, Search, Star, MessageSquare, LogOut, Plus, ChevronDown, ChevronUp, Trash2, Edit2, Check, X, Info, FileText, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
 import AddTransactionModal from '../components/AddTransactionModal';
@@ -522,11 +522,14 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
 
         <div style={isMobile ? styles.heroBannerMobile : styles.heroBanner}>
           <div style={styles.heroLeft}>
-            <p style={styles.heroLabel}>{timeFilter === 'All Time' ? 'All time you are' : `${timeFilter} you are`}</p>
-            <h2 style={{ ...styles.heroAmount, color: casinos.length === 0 ? 'rgba(255,255,255,0.4)' : netResult >= 0 ? '#4ade80' : '#f87171' }}>
-              {casinos.length === 0 ? 'No data yet' : `${netResult >= 0 ? '+' : '-'}${symbol}${Math.abs(netResult).toLocaleString()}`}
+            {casinos.length > 0 && <p style={styles.heroLabel}>{timeFilter === 'All Time' ? 'All time you are' : `${timeFilter} you are`}</p>}
+            <h2 style={{ ...styles.heroAmount, color: casinos.length === 0 ? 'rgba(255,255,255,0.95)' : netResult >= 0 ? '#4ade80' : '#f87171', ...(casinos.length === 0 && { fontSize: isMobile ? '21px' : '26px', letterSpacing: '-0.5px', lineHeight: '1.3' }) }}>
+              {casinos.length === 0 ? 'Because the house always knows its numbers.' : `${netResult >= 0 ? '+' : '-'}${symbol}${Math.abs(netResult).toLocaleString()}`}
             </h2>
-            <p style={styles.heroSub}>{casinos.length === 0 ? 'Add your first casino to get started' : `across ${casinos.length} casinos`}</p>
+            {casinos.length === 0 && <p style={styles.emptyHeroSubtitle}>All your casinos. One dashboard.</p>}
+            <p style={{ ...styles.heroSub, ...(casinos.length === 0 && { color: '#0ea5e9', fontWeight: '600', fontSize: '14px' }) }}>
+              {casinos.length === 0 ? 'Now you can too.' : `across ${casinos.length} casinos`}
+            </p>
           </div>
           {!isMobile && (
             <div style={styles.heroRight}>
@@ -625,9 +628,28 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
         {casinos.length === 0 ? (
           <div style={isMobile ? styles.emptyDashboardMobile : styles.emptyDashboard}>
             <div style={styles.emptyDashboardContent}>
-              <div style={styles.emptyIconWrapper}><Building2 size={40} color="#0ea5e9" /></div>
               <h3 style={styles.emptyDashboardTitle}>Welcome to Casiflow, {firstName}!</h3>
-              <p style={styles.emptyDashboardText}>You have not added any casinos yet. Add your first casino to start tracking your spending.</p>
+              <p style={styles.emptyDashboardText}>Here's how to get started in three simple steps.</p>
+              <div style={isMobile ? styles.emptyStepsColumnMobile : styles.emptyStepsRow}>
+                <div style={styles.emptyStepCard}>
+                  <div style={styles.emptyStepIcon}><Building2 size={26} color="#0ea5e9" /></div>
+                  <p style={styles.emptyStepNumber}>Step 1</p>
+                  <p style={styles.emptyStepTitle}>Add Your Casinos</p>
+                  <p style={styles.emptyStepDesc}>Add each casino where you have an account.</p>
+                </div>
+                <div style={styles.emptyStepCard}>
+                  <div style={styles.emptyStepIcon}><FileText size={26} color="#0ea5e9" /></div>
+                  <p style={styles.emptyStepNumber}>Step 2</p>
+                  <p style={styles.emptyStepTitle}>Log Your Activity</p>
+                  <p style={styles.emptyStepDesc}>Record deposits, withdrawals and your current balance.</p>
+                </div>
+                <div style={styles.emptyStepCard}>
+                  <div style={styles.emptyStepIcon}><TrendingUp size={26} color="#0ea5e9" /></div>
+                  <p style={styles.emptyStepNumber}>Step 3</p>
+                  <p style={styles.emptyStepTitle}>Track Your Position</p>
+                  <p style={styles.emptyStepDesc}>Track your wins, losses and trends per casino. For the first time, you'll know exactly where you stand.</p>
+                </div>
+              </div>
               <Link to="/add-casino" style={styles.emptyDashboardBtn}>+ Add Your First Casino</Link>
             </div>
           </div>
@@ -703,12 +725,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
           </div>
 
           {casinos.length === 0 ? (
-            <div style={styles.emptyState}>
-              <div style={styles.emptyIconWrapper}><Building2 size={32} color="#94a3b8" /></div>
-              <p style={styles.emptyTitle}>No casinos added yet</p>
-              <p style={styles.emptyText}>Add your first casino to start tracking your spending</p>
-              <Link to="/add-casino" style={styles.emptyAddBtn}>+ Add Casino</Link>
-            </div>
+            <p style={styles.emptyCasinosNote}>No casinos added yet</p>
           ) : filteredCasinos.length === 0 ? (
             <div style={styles.emptyState}>
               <div style={styles.emptyIconWrapper}><Search size={32} color="#94a3b8" /></div>
@@ -1001,13 +1018,22 @@ const styles = {
   progressFill: { height: '100%', borderRadius: '5px', transition: 'width 0.3s ease', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '6px' },
   progressLabel: { color: 'white', fontSize: '9px', fontWeight: '700' },
   limitText: { color: '#94a3b8', fontSize: '11px', margin: 0 },
-  emptyDashboard: { margin: '20px 28px 0 28px', backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
-  emptyDashboardMobile: { margin: '14px 16px 0 16px', backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
-  emptyDashboardContent: { padding: '48px 24px', textAlign: 'center' },
+  emptyDashboard: { margin: '16px 28px 0 28px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  emptyDashboardMobile: { margin: '12px 16px 0 16px', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  emptyDashboardContent: { padding: '28px 20px 28px 20px', textAlign: 'center' },
   emptyIconWrapper: { width: '72px', height: '72px', backgroundColor: '#f0f9ff', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' },
-  emptyDashboardTitle: { color: '#0f172a', fontSize: '20px', fontWeight: '800', margin: '0 0 10px 0' },
-  emptyDashboardText: { color: '#64748b', fontSize: '14px', lineHeight: '1.6', margin: '0 0 24px 0', maxWidth: '360px', marginLeft: 'auto', marginRight: 'auto' },
-  emptyDashboardBtn: { display: 'inline-block', padding: '12px 24px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', borderRadius: '10px', textDecoration: 'none', fontSize: '14px', fontWeight: '700', boxShadow: '0 4px 12px rgba(14,165,233,0.3)' },
+  emptyHeroSubtitle: { color: 'rgba(255,255,255,0.65)', fontSize: '14px', margin: '8px 0 4px 0', fontWeight: '400' },
+  emptyDashboardTitle: { color: '#0f172a', fontSize: '20px', fontWeight: '800', margin: '0 0 6px 0' },
+  emptyDashboardText: { color: '#475569', fontSize: '15px', fontWeight: '500', lineHeight: '1.5', margin: '0 0 20px 0' },
+  emptyDashboardBtn: { display: 'block', padding: '14px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', borderRadius: '10px', textDecoration: 'none', fontSize: '15px', fontWeight: '700', boxShadow: '0 4px 12px rgba(14,165,233,0.3)', marginTop: '20px', textAlign: 'center', maxWidth: '350px', marginLeft: 'auto', marginRight: 'auto' },
+  emptyStepsRow: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' },
+  emptyStepsColumnMobile: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  emptyStepCard: { backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: '3px solid #0ea5e9', borderRadius: '12px', padding: '14px 14px 16px 14px', textAlign: 'center' },
+  emptyStepIcon: { width: '48px', height: '48px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px auto' },
+  emptyStepNumber: { color: '#0ea5e9', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px 0' },
+  emptyStepTitle: { color: '#0f172a', fontSize: '14px', fontWeight: '700', margin: '0 0 6px 0' },
+  emptyStepDesc: { color: '#64748b', fontSize: '13px', lineHeight: '1.5', margin: '0' },
+  emptyCasinosNote: { color: '#94a3b8', fontSize: '13px', textAlign: 'center', padding: '24px 0', margin: 0 },
   chartsRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '16px 28px 0 28px' },
   chartsRowMobile: { display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px 16px 0 16px' },
   chartCard: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
@@ -1042,7 +1068,6 @@ const styles = {
   emptyState: { textAlign: 'center', padding: '32px 0' },
   emptyTitle: { color: '#1e293b', fontSize: '15px', fontWeight: '600', margin: '12px 0 6px 0' },
   emptyText: { color: '#94a3b8', fontSize: '13px', margin: '0 0 14px 0' },
-  emptyAddBtn: { display: 'inline-block', padding: '8px 18px', backgroundColor: '#0ea5e9', color: 'white', borderRadius: '8px', textDecoration: 'none', fontSize: '13px', fontWeight: '600' },
   casinoCard: { border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '10px', backgroundColor: '#fafafa' },
   casinoHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' },
   casinoNameRow: { display: 'flex', alignItems: 'center', gap: '10px' },
