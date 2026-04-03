@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, ArrowDownCircle, ArrowUpCircle, Gift, Calendar, DollarSign, Plus, Trash2, Upload, CheckCircle, Wallet } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { CURRENCY_SYMBOLS } from '../utils/currency';
 
 function parseCSVLine(line) {
   const result = [];
@@ -179,7 +180,7 @@ function AddTransactionModal({ casino, userId, currency, onClose, onSaved }) {
   const [csvResults, setCsvResults] = useState(null);
   const [showManualMapping, setShowManualMapping] = useState(false);
 
-  const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'SEK' ? 'kr' : currency === 'DKK' ? 'kr' : '€';
+  const symbol = CURRENCY_SYMBOLS[currency] || '€';
   const gameTypes = ['Slots', 'Live Casino', 'Blackjack', 'Roulette', 'Poker', 'Baccarat', 'Sports Betting', 'Other'];
 
   const addRow = () => setRows(prev => [...prev, { id: prev.length + 1, date: new Date().toISOString().slice(0, 10), type: 'deposit', amount: '', gameType: '', customGame: '' }]);

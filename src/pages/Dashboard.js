@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 import { supabase } from '../supabaseClient';
 import AddTransactionModal from '../components/AddTransactionModal';
 import Footer from '../components/Footer';
+import { getCurrencyCode, getCurrencySymbol } from '../utils/currency';
 
 function getDateRange(filter) {
   const now = new Date();
@@ -266,8 +267,8 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
     setExpandedCasinos(prev => ({ ...prev, [casinoId]: !prev[casinoId] }));
   };
 
-  const currency = profile?.currency || sessionStorage.getItem('userCurrency') || 'EUR';
-  const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'SEK' ? 'kr' : currency === 'DKK' ? 'kr' : '€';
+  const currency = getCurrencyCode(profile);
+  const symbol = getCurrencySymbol(profile);
   const timeFilters = ['All Time', 'Last 24hrs', 'Last Week', 'This Month', 'Last Month', 'Last 3 Months', 'Last 6 Months', 'Last Year'];
 
   const globalRange = useMemo(() => getDateRange(timeFilter), [timeFilter]);

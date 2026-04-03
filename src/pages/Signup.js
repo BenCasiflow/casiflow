@@ -52,7 +52,36 @@ function Signup({ onSignupComplete }) {
     'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe', 'Other'
   ];
 
-  const currencies = ['EUR', 'GBP', 'SEK', 'DKK', 'NOK', 'USD', 'AUD', 'CAD', 'CHF', 'JPY', 'Other'];
+  const currencies = ['EUR', 'GBP', 'SEK', 'DKK', 'NOK', 'USD', 'AUD', 'CAD', 'CHF', 'NZD', 'PLN', 'CZK', 'HUF', 'RON', 'BGN', 'ISK', 'JPY', 'Other'];
+
+  const COUNTRY_CURRENCY = {
+    'United Kingdom': 'GBP',
+    'Netherlands': 'EUR', 'Germany': 'EUR', 'France': 'EUR', 'Belgium': 'EUR',
+    'Spain': 'EUR', 'Italy': 'EUR', 'Portugal': 'EUR', 'Austria': 'EUR',
+    'Ireland': 'EUR', 'Finland': 'EUR', 'Luxembourg': 'EUR', 'Greece': 'EUR',
+    'Cyprus': 'EUR', 'Malta': 'EUR', 'Slovakia': 'EUR', 'Slovenia': 'EUR',
+    'Estonia': 'EUR', 'Latvia': 'EUR', 'Lithuania': 'EUR', 'Croatia': 'EUR',
+    'Norway': 'NOK',
+    'Denmark': 'DKK',
+    'Sweden': 'SEK',
+    'Switzerland': 'CHF',
+    'Poland': 'PLN',
+    'Czech Republic': 'CZK',
+    'Hungary': 'HUF',
+    'Romania': 'RON',
+    'Bulgaria': 'BGN',
+    'Iceland': 'ISK',
+    'United States': 'USD',
+    'Canada': 'CAD',
+    'Australia': 'AUD',
+    'New Zealand': 'NZD',
+  };
+
+  const handleJurisdictionChange = (e) => {
+    const selected = e.target.value;
+    setJurisdiction(selected);
+    setCurrency(COUNTRY_CURRENCY[selected] || 'EUR');
+  };
 
   const getSpendingProfile = () => {
     if (!monthlyIncome || !netLossLimit) return null;
@@ -195,7 +224,7 @@ function Signup({ onSignupComplete }) {
             <div style={isMobile ? styles.fieldFull : styles.row}>
               <div style={styles.field}>
                 <label style={styles.label}>Country *</label>
-                <select style={styles.input} value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}>
+                <select style={styles.input} value={jurisdiction} onChange={handleJurisdictionChange}>
                   <option value="">Select country</option>
                   {countries.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>

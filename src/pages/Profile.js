@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LayoutDashboard, Building2, User, LogOut } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import Footer from '../components/Footer';
+import { getCurrencyCode, getCurrencySymbol, CURRENCY_CODES } from '../utils/currency';
 
 function Profile({ user, profile, onLogout, onUpdateProfile }) {
   const [name, setName] = useState('');
@@ -69,8 +70,10 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
     'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe', 'Other'
   ];
 
-  const currencies = ['EUR', 'GBP', 'SEK', 'DKK', 'NOK', 'USD', 'AUD', 'CAD', 'CHF', 'JPY', 'Other'];
-  const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
+  const currencies = CURRENCY_CODES;
+  // Symbol is derived from the live profile/sessionStorage — not from the local form
+  // state which starts empty and would show € before profile loads.
+  const symbol = getCurrencySymbol(profile);
 
   const getSpendingProfile = () => {
     if (!monthlyIncome || !monthlyNetLossLimit) return null;

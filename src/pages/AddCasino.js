@@ -4,6 +4,7 @@ import { LayoutDashboard, Building2, User, LogOut, Upload, CheckCircle, AlertCir
 import { supabase } from '../supabaseClient';
 import AddTransactionModal from '../components/AddTransactionModal';
 import Footer from '../components/Footer';
+import { getCurrencyCode, getCurrencySymbol } from '../utils/currency';
 
 const TYPE_MAPPINGS = {
   deposit: ['deposit', 'deposits', 'dep', 'credit', 'fund', 'funding', 'top up', 'topup', 'top-up', 'payment in', 'money in'],
@@ -232,8 +233,8 @@ function AddCasino({ user, profile, onLogout }) {
     fetchExistingCasinos();
   }, [fetchExistingCasinos]);
 
-  const currency = profile?.currency || sessionStorage.getItem('userCurrency') || 'EUR';
-  const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency === 'SEK' ? 'kr' : currency === 'DKK' ? 'kr' : '€';
+  const currency = getCurrencyCode(profile);
+  const symbol = getCurrencySymbol(profile);
   const gameTypes = ['Slots', 'Live Casino', 'Blackjack', 'Roulette', 'Poker', 'Baccarat', 'Sports Betting', 'Other'];
 
   const getAvatarColor = (name) => {
