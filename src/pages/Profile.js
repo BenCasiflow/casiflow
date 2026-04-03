@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { LayoutDashboard, Building2, User, LogOut } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import Footer from '../components/Footer';
-import { getCurrencyCode, getCurrencySymbol, CURRENCY_CODES } from '../utils/currency';
+import { getCurrencySymbol, CURRENCY_CODES } from '../utils/currency';
 
 function Profile({ user, profile, onLogout, onUpdateProfile }) {
   const [name, setName] = useState('');
