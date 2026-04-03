@@ -178,6 +178,8 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
 
   const tabs = ['profile', 'budget', 'security', 'data'];
   const tabLabels = { profile: 'Profile', budget: 'Budget & Limits', security: 'Security', data: 'My Data' };
+  // Mobile labels: shortened where needed to fit, but "My Data" must stay in full (not truncated to "My")
+  const tabLabelsMobile = { profile: 'Profile', budget: 'Budget', security: 'Security', data: 'My Data' };
 
   return (
     <div style={styles.appContainer}>
@@ -226,10 +228,10 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
             {tabs.map(tab => (
               <button
                 key={tab}
-                style={{ ...styles.tab, ...(activeTab === tab ? styles.tabActive : {}) }}
+                style={{ ...(isMobile ? styles.tabMobile : styles.tab), ...(activeTab === tab ? styles.tabActive : {}) }}
                 onClick={() => setActiveTab(tab)}
               >
-                {isMobile ? tabLabels[tab].split(' ')[0] : tabLabels[tab]}
+                {isMobile ? tabLabelsMobile[tab] : tabLabels[tab]}
               </button>
             ))}
           </div>
@@ -335,20 +337,20 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
             <div style={styles.card}>
               <h3 style={styles.cardTitle}>My Data</h3>
               <p style={styles.cardSubtitle}>Export or delete your account data</p>
-              <div style={styles.dataRow}>
+              <div style={isMobile ? styles.dataRowMobile : styles.dataRow}>
                 <div>
                   <p style={styles.dataTitle}>Export My Data</p>
                   <p style={styles.dataDesc}>Download all your transaction data as a CSV file. This is your right under GDPR.</p>
                 </div>
-                <button style={styles.exportBtn} onClick={handleExportCSV}>📥 Export CSV</button>
+                <button style={isMobile ? styles.exportBtnMobile : styles.exportBtn} onClick={handleExportCSV}>📥 Export CSV</button>
               </div>
               <div style={styles.divider} />
-              <div style={styles.dataRow}>
+              <div style={isMobile ? styles.dataRowMobile : styles.dataRow}>
                 <div>
                   <p style={styles.dataTitle}>Delete Account</p>
                   <p style={styles.dataDesc}>Permanently delete your account and all associated data. This cannot be undone.</p>
                 </div>
-                <button style={styles.deleteBtn} onClick={handleDeleteAccount}>🗑 Delete Account</button>
+                <button style={isMobile ? styles.deleteBtnMobile : styles.deleteBtn} onClick={handleDeleteAccount}>🗑 Delete Account</button>
               </div>
             </div>
           )}
@@ -403,6 +405,7 @@ const styles = {
   tabBar: { display: 'flex', gap: '4px', marginBottom: '24px', backgroundColor: 'white', padding: '6px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', width: 'fit-content' },
   tabBarMobile: { display: 'flex', gap: '4px', marginBottom: '16px', backgroundColor: 'white', padding: '5px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', width: '100%' },
   tab: { padding: '8px 20px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', color: '#64748b', fontSize: '14px', fontWeight: '500', cursor: 'pointer' },
+  tabMobile: { flex: 1, padding: '8px 4px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', color: '#64748b', fontSize: '12px', fontWeight: '500', cursor: 'pointer', whiteSpace: 'nowrap' },
   tabActive: { backgroundColor: '#0ea5e9', color: 'white', fontWeight: '600' },
   card: { backgroundColor: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
   cardTitle: { color: '#0f172a', fontSize: '16px', fontWeight: '700', margin: '0 0 4px 0' },
@@ -421,10 +424,13 @@ const styles = {
   saveBtn: { width: '100%', padding: '14px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' },
   errorBox: { backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', marginBottom: '16px' },
   dataRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 0', gap: '16px' },
+  dataRowMobile: { display: 'flex', flexDirection: 'column', padding: '12px 0', gap: '10px' },
   dataTitle: { color: '#1e293b', fontSize: '14px', fontWeight: '600', margin: '0 0 4px 0' },
   dataDesc: { color: '#64748b', fontSize: '13px', margin: 0 },
   exportBtn: { padding: '10px 16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 },
+  exportBtnMobile: { width: '100%', padding: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' },
   deleteBtn: { padding: '10px 16px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 },
+  deleteBtnMobile: { width: '100%', padding: '12px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' },
   bottomNav: { position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: 'white', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '8px 0', zIndex: 100, boxShadow: '0 -2px 10px rgba(0,0,0,0.08)' },
   bottomNavItem: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', color: '#94a3b8', textDecoration: 'none', fontSize: '10px', fontWeight: '500', padding: '4px 12px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', minWidth: '60px' },
   bottomNavItemActive: { color: '#0ea5e9' },

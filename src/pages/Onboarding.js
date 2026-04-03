@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Target, TrendingUp, ArrowDownCircle, ArrowUpCircle, Building2 } from 'lucide-react';
 
-function DashboardMockup() {
+function DashboardMockup({ compact }) {
   return (
-    <div style={mockup.wrapper}>
+    <div style={{ ...mockup.wrapper, marginBottom: compact ? '12px' : '24px' }}>
       <div style={mockup.topBar}>
         <span style={mockup.logoText}>Casiflow</span>
         <span style={mockup.topBarRight}>Your Dashboard</span>
@@ -67,6 +67,18 @@ function DashboardMockup() {
 function Onboarding({ user, profile, onComplete }) {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+
+  // Touch tracking for swipe navigation
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   // Read name from sessionStorage first — this is set immediately during signup
   // so it is always available without waiting for Supabase
@@ -85,42 +97,76 @@ function Onboarding({ user, profile, onComplete }) {
     navigate('/add-casino');
   };
 
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = touchStartX.current - e.changedTouches[0].clientX;
+    const dy = touchStartY.current - e.changedTouches[0].clientY;
+    // Only fire when horizontal movement is dominant (not a scroll gesture)
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      if (dx > 0 && step < 3) setStep(s => s + 1); // swipe left → next
+      if (dx < 0 && step > 1) setStep(s => s - 1); // swipe right → back
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
+  const m = isMobile; // shorthand
+
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.progressBar}>
+    <div style={{ ...styles.container, padding: m ? '12px' : '24px' }}>
+      <div
+        style={{ ...styles.card, padding: m ? '20px' : '48px' }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div style={{ ...styles.progressBar, marginBottom: m ? '16px' : '40px' }}>
           <div style={{ ...styles.progressFill, width: `${(step / 3) * 100}%` }} />
         </div>
 
         {step === 1 && (
           <div style={styles.step}>
-            <div style={styles.iconWrapper}>
-              <LayoutDashboard size={36} color="#38bdf8" />
+            <div style={{
+              ...styles.iconWrapper,
+              width: m ? '60px' : '80px',
+              height: m ? '60px' : '80px',
+              borderRadius: m ? '16px' : '20px',
+              marginBottom: m ? '12px' : '20px',
+            }}>
+              <LayoutDashboard size={m ? 28 : 36} color="#38bdf8" />
             </div>
-            <h2 style={styles.title}>Welcome to Casiflow, {firstName}!</h2>
-            <p style={styles.subtitle}>Track smarter, play smarter, keep more. Casiflow gives you a complete overview of your casino spending across all platforms — so you always know exactly where you stand.</p>
-            <div style={styles.features}>
-              <div style={styles.feature}>
-                <div style={styles.featureIconWrapper}>
-                  <Building2 size={20} color="#38bdf8" />
+            <h2 style={{ ...styles.title, fontSize: m ? '22px' : '28px', marginBottom: m ? '8px' : '12px' }}>
+              Welcome to Casiflow, {firstName}!
+            </h2>
+            <p style={{ ...styles.subtitle, fontSize: m ? '13px' : '15px', marginBottom: m ? '14px' : '24px' }}>
+              Track smarter, play smarter, keep more. Casiflow gives you a complete overview of your casino spending across all platforms — so you always know exactly where you stand.
+            </p>
+            <div style={{ ...styles.features, gap: m ? '8px' : '12px', marginBottom: m ? '16px' : '32px' }}>
+              <div style={{ ...styles.feature, padding: m ? '10px 12px' : '16px' }}>
+                <div style={{ ...styles.featureIconWrapper, width: m ? '36px' : '44px', height: m ? '36px' : '44px', borderRadius: m ? '8px' : '10px' }}>
+                  <Building2 size={m ? 16 : 20} color="#38bdf8" />
                 </div>
                 <div>
                   <p style={styles.featureTitle}>Unified Dashboard</p>
                   <p style={styles.featureDesc}>See all your casino spending in one place</p>
                 </div>
               </div>
-              <div style={styles.feature}>
-                <div style={styles.featureIconWrapper}>
-                  <Target size={20} color="#38bdf8" />
+              <div style={{ ...styles.feature, padding: m ? '10px 12px' : '16px' }}>
+                <div style={{ ...styles.featureIconWrapper, width: m ? '36px' : '44px', height: m ? '36px' : '44px', borderRadius: m ? '8px' : '10px' }}>
+                  <Target size={m ? 16 : 20} color="#38bdf8" />
                 </div>
                 <div>
                   <p style={styles.featureTitle}>Spending Limits</p>
                   <p style={styles.featureDesc}>Set deposit and net loss limits to stay in control</p>
                 </div>
               </div>
-              <div style={styles.feature}>
-                <div style={styles.featureIconWrapper}>
-                  <TrendingUp size={20} color="#38bdf8" />
+              <div style={{ ...styles.feature, padding: m ? '10px 12px' : '16px' }}>
+                <div style={{ ...styles.featureIconWrapper, width: m ? '36px' : '44px', height: m ? '36px' : '44px', borderRadius: m ? '8px' : '10px' }}>
+                  <TrendingUp size={m ? 16 : 20} color="#38bdf8" />
                 </div>
                 <div>
                   <p style={styles.featureTitle}>Performance Insights</p>
@@ -128,19 +174,25 @@ function Onboarding({ user, profile, onComplete }) {
                 </div>
               </div>
             </div>
-            <button onClick={() => setStep(2)} style={styles.primaryBtn}>Get Started</button>
+            <button onClick={() => setStep(2)} style={{ ...styles.primaryBtn, padding: m ? '12px' : '14px', marginBottom: m ? '6px' : '8px' }}>
+              Get Started
+            </button>
             <button onClick={handleComplete} style={styles.skipBtn}>Skip for now</button>
           </div>
         )}
 
         {step === 2 && (
           <div style={styles.step}>
-            <h2 style={styles.title}>Your casinos, all in one place</h2>
-            <p style={styles.subtitle}>Here is what your Casiflow dashboard will look like once you add your casinos. Every number updates in real time as you log transactions.</p>
-            <DashboardMockup />
-            <div style={styles.btnRow}>
-              <button onClick={() => setStep(1)} style={styles.secondaryBtn}>Back</button>
-              <button onClick={() => setStep(3)} style={styles.primaryBtnFlex}>Next</button>
+            <h2 style={{ ...styles.title, fontSize: m ? '20px' : '28px', marginBottom: m ? '8px' : '12px' }}>
+              Your casinos, all in one place
+            </h2>
+            <p style={{ ...styles.subtitle, fontSize: m ? '13px' : '15px', marginBottom: m ? '12px' : '24px' }}>
+              Here is what your Casiflow dashboard will look like once you add your casinos. Every number updates in real time as you log transactions.
+            </p>
+            <DashboardMockup compact={m} />
+            <div style={{ ...styles.btnRow, marginTop: m ? '4px' : '12px' }}>
+              <button onClick={() => setStep(1)} style={{ ...styles.secondaryBtn, padding: m ? '11px 14px' : '14px 20px' }}>Back</button>
+              <button onClick={() => setStep(3)} style={{ ...styles.primaryBtnFlex, padding: m ? '11px' : '14px' }}>Next</button>
             </div>
             <button onClick={handleComplete} style={styles.skipBtn}>Skip for now</button>
           </div>
@@ -148,26 +200,42 @@ function Onboarding({ user, profile, onComplete }) {
 
         {step === 3 && (
           <div style={styles.step}>
-            <div style={styles.iconWrapper}>
-              <TrendingUp size={36} color="#38bdf8" />
+            <div style={{
+              ...styles.iconWrapper,
+              width: m ? '60px' : '80px',
+              height: m ? '60px' : '80px',
+              borderRadius: m ? '16px' : '20px',
+              marginBottom: m ? '12px' : '20px',
+            }}>
+              <TrendingUp size={m ? 28 : 36} color="#38bdf8" />
             </div>
-            <h2 style={styles.title}>You are ready to go!</h2>
-            <p style={styles.subtitle}>Your dashboard is waiting. Start by adding your first casino — it only takes a minute.</p>
-            <div style={styles.tipBox}>
+            <h2 style={{ ...styles.title, fontSize: m ? '22px' : '28px', marginBottom: m ? '8px' : '12px' }}>
+              You are ready to go!
+            </h2>
+            <p style={{ ...styles.subtitle, fontSize: m ? '13px' : '15px', marginBottom: m ? '14px' : '24px' }}>
+              Your dashboard is waiting. Start by adding your first casino — it only takes a minute.
+            </p>
+            <div style={{ ...styles.tipBox, padding: m ? '14px' : '20px', marginBottom: m ? '16px' : '24px' }}>
               <p style={styles.tipTitle}>Quick tip</p>
               <p style={styles.tipText}>Set your monthly deposit limit and net loss limit in your Profile settings to get the most out of Casiflow's spending alerts.</p>
             </div>
-            <button onClick={handleAddCasino} style={styles.primaryBtn}>Add My First Casino</button>
-            <div style={styles.btnRow}>
-              <button onClick={() => setStep(2)} style={styles.secondaryBtn}>Back</button>
-              <button onClick={handleComplete} style={styles.goToDashboardBtn}>Go to Dashboard</button>
+            <button onClick={handleAddCasino} style={{ ...styles.primaryBtn, padding: m ? '12px' : '14px', marginBottom: m ? '6px' : '8px' }}>
+              Add My First Casino
+            </button>
+            <div style={{ ...styles.btnRow, marginTop: m ? '0' : '12px' }}>
+              <button onClick={() => setStep(2)} style={{ ...styles.secondaryBtn, padding: m ? '11px 14px' : '14px 20px' }}>Back</button>
+              <button onClick={handleComplete} style={{ ...styles.goToDashboardBtn, padding: m ? '11px' : '14px' }}>Go to Dashboard</button>
             </div>
           </div>
         )}
 
-        <div style={styles.stepIndicators}>
+        <div style={{ ...styles.stepIndicators, marginTop: m ? '16px' : '32px' }}>
           {[1, 2, 3].map(s => (
-            <div key={s} style={{ ...styles.stepDot, backgroundColor: s === step ? '#38bdf8' : s < step ? '#10b981' : 'rgba(255,255,255,0.2)' }} />
+            <div
+              key={s}
+              style={{ ...styles.stepDot, backgroundColor: s === step ? '#38bdf8' : s < step ? '#10b981' : 'rgba(255,255,255,0.2)' }}
+              onClick={() => setStep(s)}
+            />
           ))}
         </div>
       </div>
@@ -176,7 +244,7 @@ function Onboarding({ user, profile, onComplete }) {
 }
 
 const mockup = {
-  wrapper: { width: '100%', backgroundColor: '#f1f5f9', borderRadius: '12px', overflow: 'hidden', marginBottom: '24px', border: '1px solid #e2e8f0' },
+  wrapper: { width: '100%', backgroundColor: '#f1f5f9', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' },
   topBar: { backgroundColor: '#0f172a', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   logoText: { color: '#38bdf8', fontSize: '14px', fontWeight: '800' },
   topBarRight: { color: 'rgba(255,255,255,0.5)', fontSize: '11px' },
@@ -200,30 +268,30 @@ const mockup = {
 };
 
 const styles = {
-  container: { minHeight: '100vh', background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Segoe UI', Arial, sans-serif", padding: '24px' },
-  card: { backgroundColor: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '48px', maxWidth: '620px', width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,0.3)' },
-  progressBar: { height: '4px', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '2px', marginBottom: '40px', overflow: 'hidden' },
+  container: { minHeight: '100vh', background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Segoe UI', Arial, sans-serif" },
+  card: { backgroundColor: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', maxWidth: '620px', width: '100%', boxShadow: '0 24px 60px rgba(0,0,0,0.3)' },
+  progressBar: { height: '4px', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '2px', overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: '#38bdf8', borderRadius: '2px', transition: 'width 0.4s ease' },
   step: { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' },
-  iconWrapper: { width: '80px', height: '80px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' },
-  title: { color: 'white', fontSize: '28px', fontWeight: '800', margin: '0 0 12px 0', letterSpacing: '-0.5px' },
-  subtitle: { color: 'rgba(255,255,255,0.7)', fontSize: '15px', lineHeight: '1.7', margin: '0 0 24px 0', maxWidth: '480px' },
-  features: { display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', marginBottom: '32px' },
-  feature: { display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '12px', padding: '16px', textAlign: 'left' },
-  featureIconWrapper: { width: '44px', height: '44px', backgroundColor: 'rgba(56,189,248,0.2)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  iconWrapper: { backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  title: { color: 'white', fontWeight: '800', margin: '0 0 12px 0', letterSpacing: '-0.5px' },
+  subtitle: { color: 'rgba(255,255,255,0.7)', lineHeight: '1.7', margin: '0 0 24px 0', maxWidth: '480px' },
+  features: { display: 'flex', flexDirection: 'column', width: '100%' },
+  feature: { display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '12px', textAlign: 'left' },
+  featureIconWrapper: { backgroundColor: 'rgba(56,189,248,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   featureTitle: { color: 'white', fontSize: '14px', fontWeight: '700', margin: '0 0 4px 0' },
   featureDesc: { color: 'rgba(255,255,255,0.6)', fontSize: '13px', margin: 0 },
-  tipBox: { backgroundColor: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '12px', padding: '20px', marginBottom: '24px', textAlign: 'left', width: '100%' },
+  tipBox: { backgroundColor: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '12px', textAlign: 'left', width: '100%' },
   tipTitle: { color: '#38bdf8', fontSize: '14px', fontWeight: '700', margin: '0 0 8px 0' },
   tipText: { color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: '1.6', margin: 0 },
-  btnRow: { display: 'flex', gap: '12px', width: '100%', marginTop: '12px' },
-  primaryBtn: { width: '100%', padding: '14px', background: 'linear-gradient(135deg, #38bdf8, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(56,189,248,0.3)', marginBottom: '8px' },
-  primaryBtnFlex: { flex: 1, padding: '14px', background: 'linear-gradient(135deg, #38bdf8, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(56,189,248,0.3)' },
-  secondaryBtn: { flex: 1, padding: '14px 20px', backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' },
-  goToDashboardBtn: { flex: 1, padding: '14px', background: 'linear-gradient(135deg, #38bdf8, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer' },
+  btnRow: { display: 'flex', gap: '12px', width: '100%' },
+  primaryBtn: { width: '100%', background: 'linear-gradient(135deg, #38bdf8, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(56,189,248,0.3)' },
+  primaryBtnFlex: { flex: 1, background: 'linear-gradient(135deg, #38bdf8, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(56,189,248,0.3)' },
+  secondaryBtn: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' },
+  goToDashboardBtn: { flex: 1, background: 'linear-gradient(135deg, #38bdf8, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer' },
   skipBtn: { color: 'rgba(255,255,255,0.4)', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', fontSize: '13px', marginTop: '4px' },
-  stepIndicators: { display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '32px' },
-  stepDot: { width: '8px', height: '8px', borderRadius: '50%', transition: 'background-color 0.3s ease' },
+  stepIndicators: { display: 'flex', justifyContent: 'center', gap: '8px' },
+  stepDot: { width: '8px', height: '8px', borderRadius: '50%', transition: 'background-color 0.3s ease', cursor: 'pointer' },
 };
 
 export default Onboarding;

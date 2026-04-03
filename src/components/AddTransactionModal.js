@@ -582,7 +582,7 @@ const styles = {
   addRowBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', padding: '10px', backgroundColor: 'white', border: '2px dashed #e2e8f0', borderRadius: '10px', color: '#0ea5e9', fontSize: '13px', fontWeight: '600', cursor: 'pointer' },
   actions: { display: 'flex', gap: '10px', marginTop: '4px' },
   cancelBtn: { flex: 1, padding: '12px', backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '14px', fontWeight: '600', color: '#64748b', cursor: 'pointer' },
-  saveBtn: { flex: 2, padding: '12px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' },
+  saveBtn: { flex: 1, padding: '12px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '700', cursor: 'pointer' },
   uploadArea: { border: '2px dashed #e2e8f0', borderRadius: '12px', padding: '24px 20px', textAlign: 'center', cursor: 'pointer', backgroundColor: '#f8fafc' },
   uploadDefaultContent: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' },
   uploadSuccessContent: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' },
