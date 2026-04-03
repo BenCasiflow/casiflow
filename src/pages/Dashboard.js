@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Building2, User, Download, Bell, Search, Star, MessageSquare, LogOut, Plus, ChevronDown, ChevronUp, Trash2, Edit2, Check, X, Info, FileText, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Building2, User, Download, Bell, Search, Star, MessageSquare, LogOut, Plus, ChevronDown, ChevronUp, Trash2, Edit2, Check, X, Info, FileText, TrendingUp, Target } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
 import AddTransactionModal from '../components/AddTransactionModal';
@@ -98,6 +98,8 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   const [editingCasinoId, setEditingCasinoId] = useState(null);
   const [editingCasinoName, setEditingCasinoName] = useState('');
   const [deletingCasinoId, setDeletingCasinoId] = useState(null);
+  const [goals, setGoals] = useState([]);
+  const [goalsExpanded, setGoalsExpanded] = useState(true);
 
   const firstName = sessionStorage.getItem('userFirstName') || profile?.full_name?.split(' ')[0] || '';
 
@@ -187,9 +189,19 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
     setLoading(false);
   }, [user.id]);
 
+  const fetchGoals = useCallback(async () => {
+    const { data } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    setGoals(data || []);
+  }, [user.id]);
+
   useEffect(() => {
     fetchCasinos();
-  }, [fetchCasinos]);
+    fetchGoals();
+  }, [fetchCasinos, fetchGoals]);
 
   useEffect(() => {
     if (!profile) return;
@@ -657,6 +669,10 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
                 </div>
               </div>
               <Link to="/add-casino" style={isMobile ? styles.emptyDashboardBtnMobile : styles.emptyDashboardBtn}>+ Add Your First Casino</Link>
+              <div style={isMobile ? styles.emptyStateTipMobile : styles.emptyStateTip}>
+                <Target size={13} color="#0ea5e9" style={{ flexShrink: 0, marginTop: '1px' }} />
+                <p style={styles.emptyStateTipText}>Pro tip: <Link to="/profile" style={styles.emptyStateTipLink}>Set your first goal in your Profile</Link> to stay on track with your gambling goals.</p>
+              </div>
             </div>
           </div>
         ) : (
@@ -911,9 +927,90 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
                       )}
                     </div>
                   )}
+                  {(() => {
+                    const casinoGoals = goals.filter(g => g.casino_id === casino.id && g.status === 'active');
+                    if (casinoGoals.length === 0) return null;
+                    return (
+                      <div style={styles.casinoGoalIndicator}>
+                        <div style={styles.casinoGoalIndicatorHeader}>
+                          <Target size={11} color="#0ea5e9" />
+                          <span style={styles.casinoGoalIndicatorLabel}>Goals</span>
+                        </div>
+                        {casinoGoals.map(g => {
+                          const pct = g.target_amount > 0 ? Math.min((g.current_amount / g.target_amount) * 100, 100) : 0;
+                          return (
+                            <div key={g.id} style={styles.casinoGoalRow}>
+                              <span style={styles.casinoGoalName}>{g.title}</span>
+                              <div style={styles.casinoGoalBarWrap}>
+                                <div style={styles.casinoGoalBar}>
+                                  <div style={{ ...styles.casinoGoalFill, width: `${pct}%` }} />
+                                </div>
+                                <span style={styles.casinoGoalPct}>{pct.toFixed(0)}%</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })
+          )}
+        </div>
+
+        <div style={isMobile ? styles.goalsSectionMobile : styles.goalsSection}>
+          <button style={styles.goalsSectionHeader} onClick={() => setGoalsExpanded(p => !p)}>
+            <div style={styles.goalsSectionHeaderLeft}>
+              <Target size={16} color="#0ea5e9" />
+              <h3 style={{ ...styles.sectionTitle, margin: 0 }}>My Goals</h3>
+              {goals.filter(g => g.status === 'active').length > 0 && (
+                <span style={styles.goalCountBadge}>{goals.filter(g => g.status === 'active').length} active</span>
+              )}
+            </div>
+            {goalsExpanded ? <ChevronUp size={16} color="#94a3b8" /> : <ChevronDown size={16} color="#94a3b8" />}
+          </button>
+          {goalsExpanded && (
+            goals.length === 0 ? (
+              <div style={styles.goalsEmptyCallout}>
+                <Target size={20} color="#bae6fd" style={{ marginBottom: '8px' }} />
+                <p style={styles.goalsEmptyCalloutTitle}>No goals set yet</p>
+                <p style={styles.goalsEmptyCalloutText}><Link to="/profile" style={styles.goalsEmptyLink}>Head to Profile → Goals</Link> to set your first goal and track your progress.</p>
+              </div>
+            ) : (
+              <div style={styles.dashGoalsList}>
+                {goals.map(goal => {
+                  const pct = goal.target_amount > 0 ? Math.min((goal.current_amount / goal.target_amount) * 100, 100) : 0;
+                  const casinoName = casinos.find(c => c.id === goal.casino_id)?.name;
+                  const isExpired = goal.deadline && new Date(goal.deadline) < new Date() && goal.status === 'active';
+                  const effectiveStatus = isExpired ? 'failed' : goal.status;
+                  return (
+                    <div key={goal.id} style={{ ...styles.dashGoalCard, ...(effectiveStatus === 'completed' ? { borderLeft: '4px solid #22c55e' } : effectiveStatus === 'failed' ? { borderLeft: '4px solid #ef4444' } : { borderLeft: '4px solid #0ea5e9' }) }}>
+                      <div style={styles.dashGoalHeader}>
+                        <div style={styles.dashGoalLeft}>
+                          <span style={styles.dashGoalTitle}>{goal.title}</span>
+                          <div style={styles.dashGoalMeta}>
+                            <span style={styles.dashGoalTypeBadge}>{goal.goal_type}</span>
+                            {casinoName && <span style={styles.dashGoalCasinoBadge}>{casinoName}</span>}
+                            {goal.deadline && <span style={styles.dashGoalDeadlineBadge}>{new Date(goal.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                          </div>
+                        </div>
+                        <span style={{ ...styles.dashGoalStatus, backgroundColor: effectiveStatus === 'completed' ? '#f0fdf4' : effectiveStatus === 'failed' ? '#fef2f2' : '#f0f9ff', color: effectiveStatus === 'completed' ? '#16a34a' : effectiveStatus === 'failed' ? '#dc2626' : '#0369a1' }}>
+                          {effectiveStatus === 'completed' ? 'Completed' : effectiveStatus === 'failed' ? 'Failed' : 'Active'}
+                        </span>
+                      </div>
+                      <div style={styles.dashGoalProgressRow}>
+                        <div style={styles.dashGoalBar}>
+                          <div style={{ ...styles.dashGoalFill, width: `${pct}%`, backgroundColor: effectiveStatus === 'completed' ? '#22c55e' : effectiveStatus === 'failed' ? '#ef4444' : '#0ea5e9' }} />
+                        </div>
+                        <span style={styles.dashGoalPct}>{pct.toFixed(0)}%</span>
+                      </div>
+                      <p style={styles.dashGoalProgressText}>{symbol}{Number(goal.current_amount || 0).toLocaleString()} of {symbol}{Number(goal.target_amount || 0).toLocaleString()}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )
           )}
         </div>
 
@@ -1145,6 +1242,43 @@ const styles = {
   feedbackActions: { display: 'flex', justifyContent: 'flex-end', gap: '8px' },
   cancelBtn: { padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', backgroundColor: 'white', fontSize: '13px' },
   submitBtn: { padding: '6px 14px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' },
+  emptyStateTip: { display: 'flex', alignItems: 'flex-start', gap: '8px', marginTop: '14px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '10px', padding: '10px 14px', maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto', textAlign: 'left' },
+  emptyStateTipMobile: { display: 'flex', alignItems: 'flex-start', gap: '7px', marginTop: '10px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '8px 10px', textAlign: 'left' },
+  emptyStateTipText: { color: '#0369a1', fontSize: '12px', lineHeight: '1.5', margin: 0 },
+  emptyStateTipLink: { color: '#0369a1', fontWeight: '700', textDecoration: 'underline' },
+  casinoGoalIndicator: { marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e2e8f0' },
+  casinoGoalIndicatorHeader: { display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' },
+  casinoGoalIndicatorLabel: { color: '#64748b', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.06em' },
+  casinoGoalRow: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' },
+  casinoGoalName: { color: '#374151', fontSize: '11px', fontWeight: '500', flexShrink: 0, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  casinoGoalBarWrap: { flex: 1, display: 'flex', alignItems: 'center', gap: '6px' },
+  casinoGoalBar: { flex: 1, height: '4px', backgroundColor: '#e0f2fe', borderRadius: '2px', overflow: 'hidden' },
+  casinoGoalFill: { height: '100%', backgroundColor: '#0ea5e9', borderRadius: '2px', transition: 'width 0.3s ease' },
+  casinoGoalPct: { color: '#0369a1', fontSize: '10px', fontWeight: '700', flexShrink: 0, minWidth: '28px', textAlign: 'right' },
+  goalsSection: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', margin: '16px 28px 0 28px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  goalsSectionMobile: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', margin: '12px 16px 0 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  goalsSectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '0' },
+  goalsSectionHeaderLeft: { display: 'flex', alignItems: 'center', gap: '8px' },
+  goalCountBadge: { backgroundColor: '#f0f9ff', color: '#0369a1', fontSize: '11px', padding: '2px 8px', borderRadius: '20px', fontWeight: '600' },
+  goalsEmptyCallout: { textAlign: 'center', padding: '20px 0 8px 0' },
+  goalsEmptyCalloutTitle: { color: '#374151', fontSize: '14px', fontWeight: '600', margin: '0 0 4px 0' },
+  goalsEmptyCalloutText: { color: '#64748b', fontSize: '13px', margin: 0, lineHeight: '1.5' },
+  goalsEmptyLink: { color: '#0369a1', fontWeight: '700', textDecoration: 'underline' },
+  dashGoalsList: { display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' },
+  dashGoalCard: { backgroundColor: '#fafafa', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 14px' },
+  dashGoalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' },
+  dashGoalLeft: { flex: 1, minWidth: 0 },
+  dashGoalTitle: { color: '#0f172a', fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '4px' },
+  dashGoalMeta: { display: 'flex', gap: '5px', flexWrap: 'wrap' },
+  dashGoalTypeBadge: { backgroundColor: '#f0f9ff', color: '#0369a1', fontSize: '10px', padding: '2px 7px', borderRadius: '20px', fontWeight: '600' },
+  dashGoalCasinoBadge: { backgroundColor: '#f0fdf4', color: '#15803d', fontSize: '10px', padding: '2px 7px', borderRadius: '20px', fontWeight: '600' },
+  dashGoalDeadlineBadge: { backgroundColor: '#fefce8', color: '#92400e', fontSize: '10px', padding: '2px 7px', borderRadius: '20px', fontWeight: '600' },
+  dashGoalStatus: { fontSize: '11px', padding: '3px 9px', borderRadius: '20px', fontWeight: '600', flexShrink: 0, marginLeft: '8px' },
+  dashGoalProgressRow: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' },
+  dashGoalBar: { flex: 1, height: '6px', backgroundColor: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' },
+  dashGoalFill: { height: '100%', borderRadius: '3px', transition: 'width 0.3s ease' },
+  dashGoalPct: { color: '#64748b', fontSize: '11px', fontWeight: '700', flexShrink: 0, minWidth: '32px', textAlign: 'right' },
+  dashGoalProgressText: { color: '#94a3b8', fontSize: '11px', margin: 0 },
 };
 
 export default Dashboard;

@@ -216,8 +216,11 @@ function Onboarding({ user, profile, onComplete }) {
               Your dashboard is waiting. Start by adding your first casino — it only takes a minute.
             </p>
             <div style={{ ...styles.tipBox, padding: m ? '14px' : '20px', marginBottom: m ? '16px' : '24px' }}>
-              <p style={styles.tipTitle}>Quick tip</p>
-              <p style={styles.tipText}>Set your monthly deposit limit and net loss limit in your Profile settings to get the most out of Casiflow's spending alerts.</p>
+              <p style={styles.tipTitle}>Quick tips</p>
+              <ul style={styles.tipList}>
+                <li style={styles.tipListItem}>Set a goal. Track your progress. Know when you've won. Head to Profile → Goals to get started.</li>
+                <li style={styles.tipListItem}>Set your monthly deposit limit and net loss limit in Profile → Budget to get the most out of Casiflow's spending alerts.</li>
+              </ul>
             </div>
             <button onClick={handleAddCasino} style={{ ...styles.primaryBtn, padding: m ? '12px' : '14px', marginBottom: m ? '6px' : '8px' }}>
               Add My First Casino
@@ -284,6 +287,8 @@ const styles = {
   tipBox: { backgroundColor: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '12px', textAlign: 'left', width: '100%' },
   tipTitle: { color: '#38bdf8', fontSize: '14px', fontWeight: '700', margin: '0 0 8px 0' },
   tipText: { color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: '1.6', margin: 0 },
+  tipList: { color: 'rgba(255,255,255,0.7)', fontSize: '13px', lineHeight: '1.6', margin: 0, paddingLeft: '18px' },
+  tipListItem: { marginBottom: '6px' },
   btnRow: { display: 'flex', gap: '12px', width: '100%' },
   primaryBtn: { width: '100%', background: 'linear-gradient(135deg, #38bdf8, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(56,189,248,0.3)' },
   primaryBtnFlex: { flex: 1, background: 'linear-gradient(135deg, #38bdf8, #0369a1)', color: 'white', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(56,189,248,0.3)' },

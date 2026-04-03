@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard, Building2, User, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, User, LogOut, Target, Plus, Trash2, ChevronUp } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import Footer from '../components/Footer';
 import { getCurrencySymbol, CURRENCY_CODES } from '../utils/currency';
@@ -22,6 +22,22 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
   const [activeTab, setActiveTab] = useState('profile');
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
 
+  // Goals state
+  const [goals, setGoals] = useState([]);
+  const [goalsLoading, setGoalsLoading] = useState(false);
+  const [showAddGoal, setShowAddGoal] = useState(false);
+  const [goalTitle, setGoalTitle] = useState('');
+  const [goalType, setGoalType] = useState('deposit');
+  const [goalTarget, setGoalTarget] = useState('');
+  const [goalCasino, setGoalCasino] = useState('');
+  const [goalDeadline, setGoalDeadline] = useState('');
+  const [goalSaving, setGoalSaving] = useState(false);
+  const [goalError, setGoalError] = useState('');
+  const [userCasinos, setUserCasinos] = useState([]);
+  const [deletingGoalId, setDeletingGoalId] = useState(null);
+  const [updatingGoalId, setUpdatingGoalId] = useState(null);
+  const [customAmounts, setCustomAmounts] = useState({});
+
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
     const handler = (e) => setIsMobile(e.matches);
@@ -29,7 +45,6 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // Load profile data into form fields when profile is available
   useEffect(() => {
     if (profile) {
       setName(profile.full_name || '');
@@ -40,6 +55,129 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
       setMonthlyNetLossLimit(profile.monthly_net_loss_limit || '');
     }
   }, [profile]);
+
+  // Fetch goals and casinos when Goals tab is active
+  const fetchGoals = useCallback(async () => {
+    setGoalsLoading(true);
+    const { data } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    if (data) {
+      // Auto-update status based on deadline
+      const now = new Date();
+      const updated = data.map(g => {
+        if (g.status === 'active' && g.deadline && new Date(g.deadline) < now && Number(g.current_amount) < Number(g.target_amount)) {
+          return { ...g, status: 'failed' };
+        }
+        return g;
+      });
+      setGoals(updated);
+      const initAmounts = {};
+      updated.forEach(g => { initAmounts[g.id] = g.current_amount || 0; });
+      setCustomAmounts(initAmounts);
+    }
+    setGoalsLoading(false);
+  }, [user.id]);
+
+  const fetchCasinos = useCallback(async () => {
+    const { data } = await supabase
+      .from('casinos')
+      .select('id, casino_name')
+      .eq('user_id', user.id)
+      .order('casino_name', { ascending: true });
+    if (data) setUserCasinos(data);
+  }, [user.id]);
+
+  useEffect(() => {
+    if (activeTab === 'goals') {
+      fetchGoals();
+      fetchCasinos();
+    }
+  }, [activeTab, fetchGoals, fetchCasinos]);
+
+  // Compute auto-calculated current amount for a goal using transactions
+  const computeCurrentAmount = useCallback(async (goalTypeVal, casinoId) => {
+    let query = supabase.from('transactions').select('type, amount').eq('user_id', user.id);
+    if (casinoId) query = query.eq('casino_id', casinoId);
+
+    const { data: txns } = await query;
+    if (!txns) return 0;
+
+    if (goalTypeVal === 'deposit') {
+      return txns.filter(t => t.type === 'deposit').reduce((s, t) => s + Number(t.amount), 0);
+    }
+    if (goalTypeVal === 'withdrawal') {
+      return txns.filter(t => t.type === 'withdrawal').reduce((s, t) => s + Number(t.amount), 0);
+    }
+    if (goalTypeVal === 'net_position') {
+      const deps = txns.filter(t => t.type === 'deposit').reduce((s, t) => s + Number(t.amount), 0);
+      const withs = txns.filter(t => t.type === 'withdrawal').reduce((s, t) => s + Number(t.amount), 0);
+      return withs - deps;
+    }
+    return 0; // custom
+  }, [user.id]);
+
+  const handleAddGoal = async (e) => {
+    e.preventDefault();
+    setGoalError('');
+    if (!goalTitle.trim()) { setGoalError('Please enter a goal title.'); return; }
+    if (!goalTarget || Number(goalTarget) <= 0) { setGoalError('Please enter a valid target amount.'); return; }
+
+    setGoalSaving(true);
+
+    let currentAmt = 0;
+    if (goalType !== 'custom') {
+      currentAmt = await computeCurrentAmount(goalType, goalCasino || null);
+    }
+
+    const status = currentAmt >= Number(goalTarget) ? 'completed' : 'active';
+
+    const { error: insertError } = await supabase.from('goals').insert({
+      user_id: user.id,
+      casino_id: goalCasino || null,
+      title: goalTitle.trim(),
+      goal_type: goalType,
+      target_amount: Number(goalTarget),
+      current_amount: currentAmt,
+      deadline: goalDeadline || null,
+      status,
+    });
+
+    if (insertError) {
+      setGoalError('Could not save goal. Please try again.');
+      setGoalSaving(false);
+      return;
+    }
+
+    setGoalTitle('');
+    setGoalType('deposit');
+    setGoalTarget('');
+    setGoalCasino('');
+    setGoalDeadline('');
+    setShowAddGoal(false);
+    setGoalSaving(false);
+    fetchGoals();
+  };
+
+  const handleDeleteGoal = async (id) => {
+    setDeletingGoalId(id);
+    await supabase.from('goals').delete().eq('id', id);
+    setGoals(prev => prev.filter(g => g.id !== id));
+    setDeletingGoalId(null);
+  };
+
+  const handleUpdateCustomAmount = async (goalId) => {
+    const newAmt = Number(customAmounts[goalId] || 0);
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+    const newStatus = newAmt >= Number(goal.target_amount) ? 'completed' : goal.status === 'failed' ? 'failed' : 'active';
+    setUpdatingGoalId(goalId);
+    await supabase.from('goals').update({ current_amount: newAmt, status: newStatus }).eq('id', goalId);
+    setGoals(prev => prev.map(g => g.id === goalId ? { ...g, current_amount: newAmt, status: newStatus } : g));
+    setUpdatingGoalId(null);
+  };
 
   const countries = [
     'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina',
@@ -71,33 +209,16 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
   ];
 
   const currencies = CURRENCY_CODES;
-  // Symbol is derived from the live profile/sessionStorage — not from the local form
-  // state which starts empty and would show € before profile loads.
   const symbol = getCurrencySymbol(profile);
 
   const getSpendingProfile = () => {
     if (!monthlyIncome || !monthlyNetLossLimit) return null;
     const percent = (monthlyNetLossLimit / monthlyIncome) * 100;
-    if (percent <= 5) return {
-      color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0',
-      text: "Your spending level is typical of casual players who enjoy online casinos as a form of entertainment. There is no particular cause for concern at this level."
-    };
-    if (percent <= 15) return {
-      color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd',
-      text: "This spending level is common among regular players. It is worth reviewing your spending periodically to make sure it stays within your comfort zone."
-    };
-    if (percent <= 30) return {
-      color: '#d97706', bg: '#fffbeb', border: '#fde68a',
-      text: "At this level you are spending a meaningful portion of your income on gambling. Casinos may offer VIP treatment. Be mindful of your spending patterns."
-    };
-    if (percent <= 50) return {
-      color: '#ea580c', bg: '#fff7ed', border: '#fed7aa',
-      text: "This spending level places you in a VIP or high-roller category. Consider whether your gambling budget is still comfortable for you financially."
-    };
-    return {
-      color: '#dc2626', bg: '#fef2f2', border: '#fecaca',
-      text: "Your spending level exceeds half of your monthly income. We recommend reviewing your limits and considering whether adjusting your budget would give you a healthier balance."
-    };
+    if (percent <= 5) return { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', text: "Your spending level is typical of casual players who enjoy online casinos as a form of entertainment. There is no particular cause for concern at this level." };
+    if (percent <= 15) return { color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd', text: "This spending level is common among regular players. It is worth reviewing your spending periodically to make sure it stays within your comfort zone." };
+    if (percent <= 30) return { color: '#d97706', bg: '#fffbeb', border: '#fde68a', text: "At this level you are spending a meaningful portion of your income on gambling. Casinos may offer VIP treatment. Be mindful of your spending patterns." };
+    if (percent <= 50) return { color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', text: "This spending level places you in a VIP or high-roller category. Consider whether your gambling budget is still comfortable for you financially." };
+    return { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', text: "Your spending level exceeds half of your monthly income. We recommend reviewing your limits and considering whether adjusting your budget would give you a healthier balance." };
   };
 
   const spendingProfile = getSpendingProfile();
@@ -106,16 +227,8 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
   const handleSave = async (e) => {
     e.preventDefault();
     setError('');
-    const { data, error: updateError } = await supabase
-      .from('profiles')
-      .update({ full_name: name, country, currency })
-      .eq('id', user.id)
-      .select()
-      .single();
-    if (updateError) {
-      setError('Could not save changes. Please try again.');
-      return;
-    }
+    const { data, error: updateError } = await supabase.from('profiles').update({ full_name: name, country, currency }).eq('id', user.id).select().single();
+    if (updateError) { setError('Could not save changes. Please try again.'); return; }
     onUpdateProfile(data);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -124,20 +237,12 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
   const handleLimitsSave = async (e) => {
     e.preventDefault();
     setError('');
-    const { data, error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        monthly_deposit_limit: monthlyDepositLimit ? Number(monthlyDepositLimit) : null,
-        monthly_net_loss_limit: monthlyNetLossLimit ? Number(monthlyNetLossLimit) : null,
-        monthly_net_income: monthlyIncome ? Number(monthlyIncome) : null,
-      })
-      .eq('id', user.id)
-      .select()
-      .single();
-    if (updateError) {
-      setError('Could not save limits. Please try again.');
-      return;
-    }
+    const { data, error: updateError } = await supabase.from('profiles').update({
+      monthly_deposit_limit: monthlyDepositLimit ? Number(monthlyDepositLimit) : null,
+      monthly_net_loss_limit: monthlyNetLossLimit ? Number(monthlyNetLossLimit) : null,
+      monthly_net_income: monthlyIncome ? Number(monthlyIncome) : null,
+    }).eq('id', user.id).select().single();
+    if (updateError) { setError('Could not save limits. Please try again.'); return; }
     onUpdateProfile(data);
     setLimitsSaved(true);
     setTimeout(() => setLimitsSaved(false), 2000);
@@ -146,25 +251,16 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
   const handlePasswordSave = async (e) => {
     e.preventDefault();
     setPasswordError('');
-    if (!newPassword) {
-      setPasswordError('Please enter a new password.');
-      return;
-    }
+    if (!newPassword) { setPasswordError('Please enter a new password.'); return; }
     const { error: passwordUpdateError } = await supabase.auth.updateUser({ password: newPassword });
-    if (passwordUpdateError) {
-      setPasswordError('Could not update password. Please try again.');
-      return;
-    }
+    if (passwordUpdateError) { setPasswordError('Could not update password. Please try again.'); return; }
     setPasswordSaved(true);
     setCurrentPassword('');
     setNewPassword('');
     setTimeout(() => setPasswordSaved(false), 2000);
   };
 
-  const handleExportCSV = () => {
-    // Placeholder for CSV export functionality
-    alert('CSV export coming soon.');
-  };
+  const handleExportCSV = () => { alert('CSV export coming soon.'); };
 
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm('Are you sure you want to delete your account? This cannot be undone.');
@@ -179,10 +275,100 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
     { id: 'profile', label: 'Profile', icon: <User size={18} />, path: '/profile' },
   ];
 
-  const tabs = ['profile', 'budget', 'security', 'data'];
-  const tabLabels = { profile: 'Profile', budget: 'Budget & Limits', security: 'Security', data: 'My Data' };
-  // Mobile labels: shortened where needed to fit, but "My Data" must stay in full (not truncated to "My")
-  const tabLabelsMobile = { profile: 'Profile', budget: 'Budget', security: 'Security', data: 'My Data' };
+  const tabs = ['profile', 'budget', 'goals', 'security', 'data'];
+  const tabLabels = { profile: 'Profile', budget: 'Budget & Limits', goals: 'Goals', security: 'Security', data: 'My Data' };
+  const tabLabelsMobile = { profile: 'Profile', budget: 'Budget', goals: 'Goals', security: 'Security', data: 'My Data' };
+
+  const goalTypeLabels = { deposit: 'Deposit', withdrawal: 'Withdrawal', net_position: 'Net Position', custom: 'Custom' };
+
+  const getStatusStyle = (status) => {
+    if (status === 'completed') return { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', label: 'Completed' };
+    if (status === 'failed') return { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', label: 'Failed' };
+    return { color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd', label: 'Active' };
+  };
+
+  const activeGoals = goals.filter(g => g.status === 'active');
+  const completedGoals = goals.filter(g => g.status === 'completed');
+  const failedGoals = goals.filter(g => g.status === 'failed');
+
+  const renderGoalCard = (goal) => {
+    const current = Number(goal.current_amount) || 0;
+    const target = Number(goal.target_amount) || 1;
+    const pct = Math.min((current / target) * 100, 100);
+    const statusStyle = getStatusStyle(goal.status);
+    const casinoName = userCasinos.find(c => c.id === goal.casino_id)?.casino_name;
+    const isCustom = goal.goal_type === 'custom';
+
+    return (
+      <div key={goal.id} style={styles.goalCard}>
+        <div style={styles.goalCardHeader}>
+          <div style={styles.goalCardLeft}>
+            <div style={styles.goalIconWrap}>
+              <Target size={16} color="#0ea5e9" />
+            </div>
+            <div>
+              <p style={styles.goalTitle}>{goal.title}</p>
+              <div style={styles.goalMeta}>
+                <span style={styles.goalTypeBadge}>{goalTypeLabels[goal.goal_type]}</span>
+                {casinoName && <span style={styles.goalCasinoBadge}>{casinoName}</span>}
+                {goal.deadline && (
+                  <span style={styles.goalDeadlineBadge}>
+                    Due {new Date(goal.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div style={styles.goalCardRight}>
+            <span style={{ ...styles.statusBadge, color: statusStyle.color, backgroundColor: statusStyle.bg, border: `1px solid ${statusStyle.border}` }}>
+              {statusStyle.label}
+            </span>
+            <button
+              style={styles.goalDeleteBtn}
+              onClick={() => handleDeleteGoal(goal.id)}
+              disabled={deletingGoalId === goal.id}
+              title="Delete goal"
+            >
+              <Trash2 size={14} color="#ef4444" />
+            </button>
+          </div>
+        </div>
+
+        <div style={styles.goalProgressRow}>
+          <div style={styles.goalProgressBar}>
+            <div style={{
+              ...styles.goalProgressFill,
+              width: `${pct}%`,
+              backgroundColor: goal.status === 'completed' ? '#16a34a' : goal.status === 'failed' ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#0ea5e9',
+            }} />
+          </div>
+          <span style={styles.goalProgressPct}>{pct.toFixed(0)}%</span>
+        </div>
+        <p style={styles.goalProgressText}>
+          {symbol}{current.toLocaleString()} of {symbol}{target.toLocaleString()}
+        </p>
+
+        {isCustom && goal.status === 'active' && (
+          <div style={styles.goalCustomUpdate}>
+            <input
+              type="number"
+              value={customAmounts[goal.id] ?? current}
+              onChange={(e) => setCustomAmounts(prev => ({ ...prev, [goal.id]: e.target.value }))}
+              style={styles.goalCustomInput}
+              placeholder="Update progress..."
+            />
+            <button
+              style={styles.goalCustomSaveBtn}
+              onClick={() => handleUpdateCustomAmount(goal.id)}
+              disabled={updatingGoalId === goal.id}
+            >
+              {updatingGoalId === goal.id ? 'Saving...' : 'Update'}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={styles.appContainer}>
@@ -195,11 +381,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
           </div>
           <nav style={styles.sidebarNav}>
             {navItems.map(item => (
-              <Link
-                key={item.id}
-                to={item.path}
-                style={{ ...styles.navItem, ...(item.id === 'profile' ? styles.navItemActive : {}) }}
-              >
+              <Link key={item.id} to={item.path} style={{ ...styles.navItem, ...(item.id === 'profile' ? styles.navItemActive : {}) }}>
                 <span style={styles.navIcon}>{item.icon}</span>
                 <span>{item.label}</span>
               </Link>
@@ -215,11 +397,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
       <div style={isMobile ? styles.mainContentMobile : styles.mainContent}>
         <div style={isMobile ? styles.topBarMobile : styles.topBar}>
           <div style={styles.topBarLeft}>
-            {isMobile && (
-              <Link to="/dashboard" style={styles.logoLink}>
-                <h1 style={styles.logoTextMobile}>Casiflow</h1>
-              </Link>
-            )}
+            {isMobile && <Link to="/dashboard" style={styles.logoLink}><h1 style={styles.logoTextMobile}>Casiflow</h1></Link>}
             {!isMobile && <h2 style={styles.pageTitle}>Profile</h2>}
             {isMobile && <h2 style={styles.pageTitleMobile}>Profile</h2>}
           </div>
@@ -241,6 +419,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
 
           {error && <div style={styles.errorBox}>{error}</div>}
 
+          {/* ── Profile tab ── */}
           {activeTab === 'profile' && (
             <div style={styles.card}>
               <h3 style={styles.cardTitle}>Personal Information</h3>
@@ -277,6 +456,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
             </div>
           )}
 
+          {/* ── Budget tab ── */}
           {activeTab === 'budget' && (
             <div style={styles.card}>
               <h3 style={styles.cardTitle}>Budget & Spending Limits</h3>
@@ -296,9 +476,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
                 </div>
                 <button type="submit" style={styles.saveBtn}>{limitsSaved ? '✓ Limits Saved!' : 'Save Limits'}</button>
               </form>
-
               <div style={styles.divider} />
-
               <h3 style={styles.cardTitle}>Income & Net Loss Limit</h3>
               <p style={styles.cardSubtitle}>Understand your net loss limit as a percentage of your monthly income</p>
               <form onSubmit={handleLimitsSave}>
@@ -317,6 +495,125 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
             </div>
           )}
 
+          {/* ── Goals tab ── */}
+          {activeTab === 'goals' && (
+            <div>
+              {/* Header row */}
+              <div style={styles.goalsHeader}>
+                <div>
+                  <h3 style={styles.cardTitle}>My Goals</h3>
+                  <p style={styles.cardSubtitle}>Track your targets — withdrawals, deposits, net position or custom milestones.</p>
+                </div>
+                <button style={styles.addGoalBtn} onClick={() => setShowAddGoal(v => !v)}>
+                  {showAddGoal ? <ChevronUp size={16} /> : <Plus size={16} />}
+                  <span>{showAddGoal ? 'Cancel' : 'Add Goal'}</span>
+                </button>
+              </div>
+
+              {/* Add goal form */}
+              {showAddGoal && (
+                <div style={styles.addGoalForm}>
+                  <h4 style={styles.addGoalFormTitle}>New Goal</h4>
+                  {goalError && <div style={styles.errorBox}>{goalError}</div>}
+                  <form onSubmit={handleAddGoal}>
+                    <div style={styles.field}>
+                      <label style={styles.label}>Goal Title</label>
+                      <input
+                        style={styles.input}
+                        type="text"
+                        value={goalTitle}
+                        onChange={(e) => setGoalTitle(e.target.value)}
+                        placeholder='e.g. "Win €1000 with casino x"'
+                      />
+                    </div>
+                    <div style={isMobile ? styles.fieldFull : styles.row}>
+                      <div style={styles.field}>
+                        <label style={styles.label}>Goal Type</label>
+                        <select style={styles.input} value={goalType} onChange={(e) => setGoalType(e.target.value)}>
+                          <option value="deposit">Deposit</option>
+                          <option value="withdrawal">Withdrawal</option>
+                          <option value="net_position">Net Position</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                        <p style={styles.fieldHint}>
+                          {goalType === 'deposit' && 'Progress auto-tracks from your total deposits.'}
+                          {goalType === 'withdrawal' && 'Progress auto-tracks from your total withdrawals.'}
+                          {goalType === 'net_position' && 'Progress auto-tracks from withdrawals minus deposits.'}
+                          {goalType === 'custom' && 'You update the progress manually.'}
+                        </p>
+                      </div>
+                      <div style={styles.field}>
+                        <label style={styles.label}>Target Amount ({symbol})</label>
+                        <input
+                          style={styles.input}
+                          type="number"
+                          value={goalTarget}
+                          onChange={(e) => setGoalTarget(e.target.value)}
+                          placeholder="e.g. 1000"
+                          min="1"
+                        />
+                      </div>
+                    </div>
+                    <div style={isMobile ? styles.fieldFull : styles.row}>
+                      <div style={styles.field}>
+                        <label style={styles.label}>Casino (optional)</label>
+                        <select style={styles.input} value={goalCasino} onChange={(e) => setGoalCasino(e.target.value)}>
+                          <option value="">All Casinos</option>
+                          {userCasinos.map(c => <option key={c.id} value={c.id}>{c.casino_name}</option>)}
+                        </select>
+                      </div>
+                      <div style={styles.field}>
+                        <label style={styles.label}>Deadline (optional)</label>
+                        <input
+                          style={styles.input}
+                          type="date"
+                          value={goalDeadline}
+                          onChange={(e) => setGoalDeadline(e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </div>
+                    </div>
+                    <button type="submit" style={styles.saveBtn} disabled={goalSaving}>
+                      {goalSaving ? 'Saving...' : 'Save Goal'}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {goalsLoading ? (
+                <p style={styles.goalsEmptyText}>Loading goals...</p>
+              ) : goals.length === 0 ? (
+                <div style={styles.goalsEmptyState}>
+                  <div style={styles.goalsEmptyIcon}><Target size={32} color="#0ea5e9" /></div>
+                  <p style={styles.goalsEmptyTitle}>No goals yet</p>
+                  <p style={styles.goalsEmptyText}>Set your first goal above to start tracking your progress.</p>
+                </div>
+              ) : (
+                <div>
+                  {activeGoals.length > 0 && (
+                    <div style={styles.goalGroup}>
+                      <p style={styles.goalGroupLabel}>Active ({activeGoals.length})</p>
+                      {activeGoals.map(renderGoalCard)}
+                    </div>
+                  )}
+                  {completedGoals.length > 0 && (
+                    <div style={styles.goalGroup}>
+                      <p style={styles.goalGroupLabel}>Completed ({completedGoals.length})</p>
+                      {completedGoals.map(renderGoalCard)}
+                    </div>
+                  )}
+                  {failedGoals.length > 0 && (
+                    <div style={styles.goalGroup}>
+                      <p style={styles.goalGroupLabel}>Failed ({failedGoals.length})</p>
+                      {failedGoals.map(renderGoalCard)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Security tab ── */}
           {activeTab === 'security' && (
             <div style={styles.card}>
               <h3 style={styles.cardTitle}>Change Password</h3>
@@ -336,6 +633,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
             </div>
           )}
 
+          {/* ── My Data tab ── */}
           {activeTab === 'data' && (
             <div style={styles.card}>
               <h3 style={styles.cardTitle}>My Data</h3>
@@ -364,11 +662,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
       {isMobile && (
         <div style={styles.bottomNav}>
           {navItems.map(item => (
-            <Link
-              key={item.id}
-              to={item.path}
-              style={{ ...styles.bottomNavItem, ...(item.id === 'profile' ? styles.bottomNavItemActive : {}) }}
-            >
+            <Link key={item.id} to={item.path} style={{ ...styles.bottomNavItem, ...(item.id === 'profile' ? styles.bottomNavItemActive : {}) }}>
               <span style={styles.bottomNavIcon}>{item.icon}</span>
               <span style={styles.bottomNavLabel}>{item.label}</span>
             </Link>
@@ -406,9 +700,9 @@ const styles = {
   content: { padding: '24px 28px', flex: 1 },
   contentMobile: { padding: '16px', flex: 1 },
   tabBar: { display: 'flex', gap: '4px', marginBottom: '24px', backgroundColor: 'white', padding: '6px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', width: 'fit-content' },
-  tabBarMobile: { display: 'flex', gap: '4px', marginBottom: '16px', backgroundColor: 'white', padding: '5px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', width: '100%' },
+  tabBarMobile: { display: 'flex', gap: '2px', marginBottom: '16px', backgroundColor: 'white', padding: '4px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', width: '100%' },
   tab: { padding: '8px 20px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', color: '#64748b', fontSize: '14px', fontWeight: '500', cursor: 'pointer' },
-  tabMobile: { flex: 1, padding: '8px 4px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', color: '#64748b', fontSize: '12px', fontWeight: '500', cursor: 'pointer', whiteSpace: 'nowrap' },
+  tabMobile: { flex: 1, padding: '7px 2px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', color: '#64748b', fontSize: '11px', fontWeight: '500', cursor: 'pointer', whiteSpace: 'nowrap' },
   tabActive: { backgroundColor: '#0ea5e9', color: 'white', fontWeight: '600' },
   card: { backgroundColor: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
   cardTitle: { color: '#0f172a', fontSize: '16px', fontWeight: '700', margin: '0 0 4px 0' },
@@ -439,6 +733,38 @@ const styles = {
   bottomNavItemActive: { color: '#0ea5e9' },
   bottomNavIcon: { display: 'flex', alignItems: 'center' },
   bottomNavLabel: { fontSize: '10px', fontWeight: '500' },
+
+  // Goals tab styles
+  goalsHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' },
+  addGoalBtn: { display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', flexShrink: 0 },
+  addGoalForm: { backgroundColor: 'white', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: '20px', border: '1px solid #e2e8f0' },
+  addGoalFormTitle: { color: '#0f172a', fontSize: '15px', fontWeight: '700', margin: '0 0 16px 0' },
+  goalsEmptyState: { backgroundColor: 'white', borderRadius: '12px', padding: '48px 24px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  goalsEmptyIcon: { width: '64px', height: '64px', backgroundColor: '#f0f9ff', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' },
+  goalsEmptyTitle: { color: '#0f172a', fontSize: '16px', fontWeight: '700', margin: '0 0 8px 0' },
+  goalsEmptyText: { color: '#64748b', fontSize: '14px', margin: 0 },
+  goalGroup: { marginBottom: '24px' },
+  goalGroupLabel: { color: '#64748b', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px 0' },
+  goalCard: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: '10px', border: '1px solid #e2e8f0' },
+  goalCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' },
+  goalCardLeft: { display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1, minWidth: 0 },
+  goalIconWrap: { width: '32px', height: '32px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  goalTitle: { color: '#0f172a', fontSize: '14px', fontWeight: '700', margin: '0 0 6px 0' },
+  goalMeta: { display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' },
+  goalTypeBadge: { backgroundColor: '#f0f9ff', color: '#0369a1', fontSize: '11px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px' },
+  goalCasinoBadge: { backgroundColor: '#f8fafc', color: '#64748b', fontSize: '11px', fontWeight: '500', padding: '2px 8px', borderRadius: '20px', border: '1px solid #e2e8f0' },
+  goalDeadlineBadge: { backgroundColor: '#fefce8', color: '#92400e', fontSize: '11px', fontWeight: '500', padding: '2px 8px', borderRadius: '20px' },
+  goalCardRight: { display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: '8px' },
+  statusBadge: { fontSize: '11px', fontWeight: '600', padding: '3px 10px', borderRadius: '20px' },
+  goalDeleteBtn: { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', opacity: 0.7 },
+  goalProgressRow: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' },
+  goalProgressBar: { flex: 1, height: '8px', backgroundColor: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' },
+  goalProgressFill: { height: '100%', borderRadius: '4px', transition: 'width 0.3s ease' },
+  goalProgressPct: { color: '#64748b', fontSize: '12px', fontWeight: '700', flexShrink: 0, minWidth: '36px', textAlign: 'right' },
+  goalProgressText: { color: '#94a3b8', fontSize: '12px', margin: '0 0 0 0' },
+  goalCustomUpdate: { display: 'flex', gap: '8px', marginTop: '12px' },
+  goalCustomInput: { flex: 1, padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', backgroundColor: '#f8fafc' },
+  goalCustomSaveBtn: { padding: '8px 16px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' },
 };
 
 export default Profile;
