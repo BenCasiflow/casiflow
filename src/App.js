@@ -96,6 +96,10 @@ function App() {
   const handleOnboardingComplete = () => {
     setIsNewUser(false);
     sessionStorage.removeItem('newUserName');
+    // Re-fetch profile here because fetchAndStoreProfile (triggered by SIGNED_IN)
+    // may have run before Signup.js finished inserting the profile row, leaving
+    // profile as null. Re-fetching ensures Dashboard receives the correct limits.
+    if (user) fetchAndStoreProfile(user.id);
   };
 
   const handleUpdateProfile = (updatedProfile) => {

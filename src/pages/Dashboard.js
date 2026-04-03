@@ -592,7 +592,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
           </div>
         )}
 
-        <div style={isMobile ? styles.limitsRowMobile : styles.limitsRow}>
+        {!(isMobile && casinos.length === 0) && <div style={isMobile ? styles.limitsRowMobile : styles.limitsRow}>
           <div style={styles.limitCard}>
             <div style={styles.limitRow}>
               <p style={styles.limitLabel}>Monthly Deposit Limit</p>
@@ -623,7 +623,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
             </div>
             <p style={styles.limitText}>{symbol}{Math.max(0, monthlyNetLoss).toLocaleString()} net loss this month of {symbol}{monthlyNetLossLimit.toLocaleString()} limit (current month only)</p>
           </div>
-        </div>
+        </div>}
 
         {casinos.length === 0 ? (
           <div style={isMobile ? styles.emptyDashboardMobile : styles.emptyDashboard}>
