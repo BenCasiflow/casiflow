@@ -526,10 +526,10 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
             <h2 style={{ ...styles.heroAmount, color: casinos.length === 0 ? 'rgba(255,255,255,0.95)' : netResult >= 0 ? '#4ade80' : '#f87171', ...(casinos.length === 0 && { fontSize: isMobile ? '21px' : '26px', letterSpacing: '-0.5px', lineHeight: '1.3' }) }}>
               {casinos.length === 0 ? 'Because the house always knows its numbers.' : `${netResult >= 0 ? '+' : '-'}${symbol}${Math.abs(netResult).toLocaleString()}`}
             </h2>
-            {casinos.length === 0 && <p style={styles.emptyHeroSubtitle}>All your casinos. One dashboard.</p>}
             <p style={{ ...styles.heroSub, ...(casinos.length === 0 && { color: '#0ea5e9', fontWeight: '600', fontSize: '14px' }) }}>
               {casinos.length === 0 ? 'Now you can too.' : `across ${casinos.length} casinos`}
             </p>
+            {casinos.length === 0 && <p style={styles.emptyHeroSubtitle}>All your casinos. One dashboard.</p>}
           </div>
           {!isMobile && (
             <div style={styles.heroRight}>
@@ -539,7 +539,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
               <div style={styles.heroStat}><p style={styles.heroStatLabel}>Most Profitable</p><p style={styles.heroStatValue}>{mostProfitable?.name || '—'}</p></div>
             </div>
           )}
-          {isMobile && (
+          {isMobile && casinos.length > 0 && (
             <div style={styles.heroStatsMobile}>
               <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Deposit Limit</p><p style={styles.heroStatValue}>{symbol}{monthlyDepositLimit.toLocaleString()}</p></div>
               <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Net Loss Limit</p><p style={styles.heroStatValue}>{symbol}{monthlyNetLossLimit.toLocaleString()}</p></div>
