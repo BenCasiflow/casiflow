@@ -555,7 +555,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
           ))}
         </div>
 
-        <div style={isMobile ? styles.statsRowMobile : styles.statsRow}>
+        {!(isMobile && casinos.length === 0) && <div style={isMobile ? styles.statsRowMobile : styles.statsRow}>
           <div style={styles.statCard}>
             <p style={styles.statLabel}>Total Deposited</p>
             <p style={styles.statValue}>{symbol}{globalTotals.deposits.toLocaleString()}</p>
@@ -578,7 +578,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
             <p style={{ ...styles.statValue, color: '#0369a1' }}>{symbol}{totalCurrentBalance.toLocaleString()}</p>
             <p style={styles.statSub}>across all casinos</p>
           </div>
-        </div>
+        </div>}
 
         {!isAllTime && casinos.length > 0 && hasLifetimeOnlyCasinos && (
           <div style={isMobile ? styles.lifetimeFilterBannerMobile : styles.lifetimeFilterBanner}>
