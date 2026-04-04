@@ -65,6 +65,8 @@ function Footer({ jurisdiction }) {
           <Link to="/privacy-policy" style={styles.footerLinkMobile}>Privacy Policy</Link>
           <span style={styles.divider}>&#183;</span>
           <Link to="/terms-and-conditions" style={styles.footerLinkMobile}>Terms &amp; Conditions</Link>
+          <span style={styles.divider}>&#183;</span>
+          <Link to="/responsible-gambling" style={styles.footerLinkMobile}>Responsible Gambling</Link>
         </div>
         <div style={styles.footerMobileRow}>
           <a href={rg.url} target="_blank" rel="noopener noreferrer" style={styles.rgLink}>
@@ -84,6 +86,8 @@ function Footer({ jurisdiction }) {
             <Link to="/privacy-policy" style={styles.footerLink}>Privacy Policy</Link>
             <span style={styles.divider}>&#183;</span>
             <Link to="/terms-and-conditions" style={styles.footerLink}>Terms &amp; Conditions</Link>
+            <span style={styles.divider}>&#183;</span>
+            <Link to="/responsible-gambling" style={styles.footerLink}>Responsible Gambling</Link>
           </div>
         </div>
         <div style={styles.footerCenter}>

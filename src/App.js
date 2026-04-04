@@ -9,6 +9,7 @@ import AddCasino from './pages/AddCasino';
 import Profile from './pages/Profile';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsAndConditions from './pages/TermsAndConditions';
+import ResponsibleGambling from './pages/ResponsibleGambling';
 import './App.css';
 
 function App() {
@@ -123,6 +124,7 @@ function App() {
         <Route path="/profile" element={user ? <Profile user={user} profile={profile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} /> : <Navigate to="/" />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy user={user} onLogout={handleLogout} />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions user={user} onLogout={handleLogout} />} />
+        <Route path="/responsible-gambling" element={<ResponsibleGambling user={user} profile={profile} onLogout={handleLogout} />} />
       </Routes>
     </Router>
   );

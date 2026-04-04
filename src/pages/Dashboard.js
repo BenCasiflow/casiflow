@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Building2, User, Download, Bell, Search, Star, MessageSquare, LogOut, Plus, ChevronDown, ChevronUp, Trash2, Edit2, Check, X, Info, FileText, TrendingUp, Target } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
@@ -100,7 +100,9 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   const [deletingCasinoId, setDeletingCasinoId] = useState(null);
   const [goals, setGoals] = useState([]);
   const [goalsExpanded, setGoalsExpanded] = useState(true);
+  const [showLogSessionPicker, setShowLogSessionPicker] = useState(false);
 
+  const navigate = useNavigate();
   const firstName = sessionStorage.getItem('userFirstName') || profile?.full_name?.split(' ')[0] || '';
 
   useEffect(() => {
@@ -468,6 +470,40 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
         />
       )}
 
+      {showLogSessionPicker && (
+        <div style={styles.modalOverlay} onClick={() => setShowLogSessionPicker(false)}>
+          <div style={styles.logSessionPicker} onClick={e => e.stopPropagation()}>
+            <div style={styles.logSessionPickerHeader}>
+              <h3 style={styles.logSessionPickerTitle}>Which casino?</h3>
+              <button style={styles.logSessionPickerClose} onClick={() => setShowLogSessionPicker(false)}>
+                <X size={18} color="#64748b" />
+              </button>
+            </div>
+            <div style={styles.logSessionPickerList}>
+              {casinos.map(c => (
+                <button
+                  key={c.id}
+                  style={styles.logSessionCasinoBtn}
+                  onClick={() => { setShowLogSessionPicker(false); setAddTransactionCasino(c); }}
+                >
+                  <div style={{ ...styles.casinoAvatar, backgroundColor: getAvatarColor(c.name), width: '32px', height: '32px', fontSize: '14px', flexShrink: 0 }}>
+                    {c.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span style={styles.logSessionCasinoName}>{c.name}</span>
+                </button>
+              ))}
+              <button
+                style={styles.logSessionNewCasinoBtn}
+                onClick={() => { setShowLogSessionPicker(false); navigate('/add-casino'); }}
+              >
+                <Plus size={14} color="#0ea5e9" />
+                <span>+ New Casino</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deletingCasinoId && (
         <div style={styles.modalOverlay}>
           <div style={styles.confirmModal}>
@@ -511,6 +547,12 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
             {!isMobile && <span style={styles.jurisdiction}>{profile?.country || 'Global'}</span>}
           </div>
           <div style={styles.topBarRight}>
+            {!isMobile && (
+              <button style={styles.logSessionTopBarBtn} onClick={() => setShowLogSessionPicker(true)}>
+                <Plus size={14} />
+                <span>Just played? Log the Session</span>
+              </button>
+            )}
             {!isMobile && (
               <button onClick={handleExportReport} style={styles.exportBtn}>
                 <Download size={14} />
@@ -558,6 +600,12 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
               <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Most Played</p><p style={styles.heroStatValue}>{mostPlayed?.name || '—'}</p></div>
               <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Most Profitable</p><p style={styles.heroStatValue}>{mostProfitable?.name || '—'}</p></div>
             </div>
+          )}
+          {isMobile && casinos.length > 0 && (
+            <button style={styles.logSessionHeroBtn} onClick={() => setShowLogSessionPicker(true)}>
+              <Plus size={14} />
+              <span>Just played? Log the Session</span>
+            </button>
           )}
         </div>
 
@@ -1238,6 +1286,16 @@ const styles = {
   bottomNavLabel: { fontSize: '10px', fontWeight: '500' },
   feedbackBtn: { position: 'fixed', bottom: '24px', right: '24px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '24px', padding: '12px 20px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', boxShadow: '0 4px 12px rgba(14,165,233,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', gap: '8px' },
   feedbackModal: { position: 'fixed', bottom: '80px', right: '24px', backgroundColor: 'white', borderRadius: '12px', padding: '20px', width: '300px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', zIndex: 200 },
+  logSessionTopBarBtn: { display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' },
+  logSessionHeroBtn: { marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 16px', backgroundColor: 'rgba(14,165,233,0.2)', border: '1px solid rgba(14,165,233,0.4)', borderRadius: '8px', color: '#7dd3fc', fontSize: '13px', fontWeight: '700', cursor: 'pointer', width: '100%' },
+  logSessionPicker: { backgroundColor: 'white', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '340px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' },
+  logSessionPickerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' },
+  logSessionPickerTitle: { color: '#0f172a', fontSize: '16px', fontWeight: '800', margin: 0 },
+  logSessionPickerClose: { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' },
+  logSessionPickerList: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  logSessionCasinoBtn: { display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', cursor: 'pointer', textAlign: 'left' },
+  logSessionCasinoName: { color: '#0f172a', fontSize: '14px', fontWeight: '600' },
+  logSessionNewCasinoBtn: { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 12px', backgroundColor: 'white', border: '2px dashed #bae6fd', borderRadius: '10px', cursor: 'pointer', color: '#0ea5e9', fontSize: '14px', fontWeight: '600', marginTop: '4px' },
   feedbackInput: { width: '100%', height: '80px', padding: '8px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '16px', resize: 'none', boxSizing: 'border-box', marginBottom: '12px' },
   feedbackActions: { display: 'flex', justifyContent: 'flex-end', gap: '8px' },
   cancelBtn: { padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', backgroundColor: 'white', fontSize: '13px' },
