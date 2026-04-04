@@ -595,8 +595,6 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
           )}
           {isMobile && casinos.length > 0 && (
             <div style={styles.heroStatsMobile}>
-              <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Deposit Limit</p><p style={styles.heroStatValue}>{symbol}{monthlyDepositLimit.toLocaleString()}</p></div>
-              <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Net Loss Limit</p><p style={styles.heroStatValue}>{symbol}{monthlyNetLossLimit.toLocaleString()}</p></div>
               <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Most Played</p><p style={styles.heroStatValue}>{mostPlayed?.name || '—'}</p></div>
               <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Most Profitable</p><p style={styles.heroStatValue}>{mostProfitable?.name || '—'}</p></div>
             </div>
@@ -616,25 +614,25 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
         </div>
 
         {!(isMobile && casinos.length === 0) && <div style={isMobile ? styles.statsRowMobile : styles.statsRow}>
-          <div style={styles.statCard}>
-            <p style={styles.statLabel}>Total Deposited</p>
+          <div style={isMobile ? styles.statCardMobile : styles.statCard}>
+            <p style={isMobile ? styles.statLabelMobile : styles.statLabel}>Total Deposited</p>
             <p style={styles.statValue}>{symbol}{globalTotals.deposits.toLocaleString()}</p>
             <p style={styles.statSub}>across {casinos.length} casinos</p>
           </div>
-          <div style={styles.statCard}>
-            <p style={styles.statLabel}>Total Withdrawn</p>
+          <div style={isMobile ? styles.statCardMobile : styles.statCard}>
+            <p style={isMobile ? styles.statLabelMobile : styles.statLabel}>Total Withdrawn</p>
             <p style={styles.statValue}>{symbol}{globalTotals.withdrawals.toLocaleString()}</p>
             <p style={styles.statSub}>total cashouts</p>
           </div>
-          <div style={{ ...styles.statCard, backgroundColor: netResult >= 0 ? '#f0fdf4' : '#fef2f2', borderLeft: `4px solid ${netResult >= 0 ? '#22c55e' : '#ef4444'}` }}>
-            <p style={styles.statLabel}>Net Result</p>
+          <div style={{ ...(isMobile ? styles.statCardMobile : styles.statCard), backgroundColor: netResult >= 0 ? '#f0fdf4' : '#fef2f2', borderLeft: `4px solid ${netResult >= 0 ? '#22c55e' : '#ef4444'}` }}>
+            <p style={isMobile ? styles.statLabelMobile : styles.statLabel}>Net Result</p>
             <p style={{ ...styles.statValue, color: netResult >= 0 ? '#16a34a' : '#dc2626' }}>
               {casinos.length === 0 ? `${symbol}0` : `${netResult >= 0 ? '+' : '-'}${symbol}${Math.abs(netResult).toLocaleString()}`}
             </p>
             <p style={styles.statSub}>{netResult >= 0 ? 'you are up' : 'you are down'}</p>
           </div>
-          <div style={{ ...styles.statCard, backgroundColor: '#f0f9ff', borderLeft: '4px solid #0ea5e9' }}>
-            <p style={styles.statLabel}>Total Balance</p>
+          <div style={{ ...(isMobile ? styles.statCardMobile : styles.statCard), backgroundColor: '#f0f9ff', borderLeft: '4px solid #0ea5e9' }}>
+            <p style={isMobile ? styles.statLabelMobile : styles.statLabel}>Total Balance</p>
             <p style={{ ...styles.statValue, color: '#0369a1' }}>{symbol}{totalCurrentBalance.toLocaleString()}</p>
             <p style={styles.statSub}>across all casinos</p>
           </div>
@@ -1154,7 +1152,9 @@ const styles = {
   statsRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', padding: '20px 28px 0 28px' },
   statsRowMobile: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '14px 16px 0 16px' },
   statCard: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderLeft: '4px solid #e2e8f0' },
+  statCardMobile: { backgroundColor: 'white', borderRadius: '12px', padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderLeft: '4px solid #e2e8f0' },
   statLabel: { color: '#94a3b8', fontSize: '10px', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '600' },
+  statLabelMobile: { color: '#94a3b8', fontSize: '9px', margin: '0 0 5px 0', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: '600' },
   statValue: { color: '#0f172a', fontSize: '22px', fontWeight: '800', margin: '0 0 4px 0', letterSpacing: '-0.5px' },
   statSub: { color: '#94a3b8', fontSize: '11px', margin: 0 },
   limitsRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '16px 28px 0 28px' },
