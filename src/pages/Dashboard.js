@@ -576,8 +576,8 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
 
         <div style={isMobile ? styles.heroBannerMobile : styles.heroBanner}>
           <div style={styles.heroLeft}>
-            {casinos.length > 0 && <p style={styles.heroLabel}>{timeFilter === 'All Time' ? 'All time you are' : `${timeFilter} you are`}</p>}
-            <h2 style={{ ...styles.heroAmount, color: casinos.length === 0 ? 'rgba(255,255,255,0.95)' : netResult >= 0 ? '#4ade80' : '#f87171', ...(casinos.length === 0 && { fontSize: isMobile ? '21px' : '26px', letterSpacing: '-0.5px', lineHeight: '1.3' }) }}>
+            {casinos.length > 0 && <p style={isMobile ? styles.heroLabelMobile : styles.heroLabel}>{timeFilter === 'All Time' ? 'All time you are' : `${timeFilter} you are`}</p>}
+            <h2 style={{ ...styles.heroAmount, color: casinos.length === 0 ? 'rgba(255,255,255,0.95)' : netResult >= 0 ? '#4ade80' : '#f87171', ...(casinos.length === 0 && { fontSize: isMobile ? '21px' : '26px', letterSpacing: '-0.5px', lineHeight: '1.3' }), ...(isMobile && casinos.length > 0 && { fontSize: '34px', margin: '0 0 4px 0' }) }}>
               {casinos.length === 0 ? 'Because the house always knows its numbers.' : `${netResult >= 0 ? '+' : '-'}${symbol}${Math.abs(netResult).toLocaleString()}`}
             </h2>
             <p style={{ ...styles.heroSub, ...(casinos.length === 0 && { color: '#0ea5e9', fontWeight: '600', fontSize: '14px' }) }}>
@@ -595,8 +595,8 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
           )}
           {isMobile && casinos.length > 0 && (
             <div style={styles.heroStatsMobile}>
-              <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Most Played</p><p style={styles.heroStatValue}>{mostPlayed?.name || '—'}</p></div>
-              <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Most Profitable</p><p style={styles.heroStatValue}>{mostProfitable?.name || '—'}</p></div>
+              <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Most Played</p><p style={styles.heroStatValueMobile}>{mostPlayed?.name || '—'}</p></div>
+              <div style={styles.heroStatMobile}><p style={styles.heroStatLabel}>Most Profitable</p><p style={styles.heroStatValueMobile}>{mostProfitable?.name || '—'}</p></div>
             </div>
           )}
           {isMobile && casinos.length > 0 && (
@@ -616,25 +616,25 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
         {!(isMobile && casinos.length === 0) && <div style={isMobile ? styles.statsRowMobile : styles.statsRow}>
           <div style={isMobile ? styles.statCardMobile : styles.statCard}>
             <p style={isMobile ? styles.statLabelMobile : styles.statLabel}>Total Deposited</p>
-            <p style={styles.statValue}>{symbol}{globalTotals.deposits.toLocaleString()}</p>
-            <p style={styles.statSub}>across {casinos.length} casinos</p>
+            <p style={isMobile ? styles.statValueMobile : styles.statValue}>{symbol}{globalTotals.deposits.toLocaleString()}</p>
+            <p style={isMobile ? styles.statSubMobile : styles.statSub}>across {casinos.length} casinos</p>
           </div>
           <div style={isMobile ? styles.statCardMobile : styles.statCard}>
             <p style={isMobile ? styles.statLabelMobile : styles.statLabel}>Total Withdrawn</p>
-            <p style={styles.statValue}>{symbol}{globalTotals.withdrawals.toLocaleString()}</p>
-            <p style={styles.statSub}>total cashouts</p>
+            <p style={isMobile ? styles.statValueMobile : styles.statValue}>{symbol}{globalTotals.withdrawals.toLocaleString()}</p>
+            <p style={isMobile ? styles.statSubMobile : styles.statSub}>total cashouts</p>
           </div>
           <div style={{ ...(isMobile ? styles.statCardMobile : styles.statCard), backgroundColor: netResult >= 0 ? '#f0fdf4' : '#fef2f2', borderLeft: `4px solid ${netResult >= 0 ? '#22c55e' : '#ef4444'}` }}>
             <p style={isMobile ? styles.statLabelMobile : styles.statLabel}>Net Result</p>
-            <p style={{ ...styles.statValue, color: netResult >= 0 ? '#16a34a' : '#dc2626' }}>
+            <p style={{ ...(isMobile ? styles.statValueMobile : styles.statValue), color: netResult >= 0 ? '#16a34a' : '#dc2626' }}>
               {casinos.length === 0 ? `${symbol}0` : `${netResult >= 0 ? '+' : '-'}${symbol}${Math.abs(netResult).toLocaleString()}`}
             </p>
-            <p style={styles.statSub}>{netResult >= 0 ? 'you are up' : 'you are down'}</p>
+            <p style={isMobile ? styles.statSubMobile : styles.statSub}>{netResult >= 0 ? 'you are up' : 'you are down'}</p>
           </div>
           <div style={{ ...(isMobile ? styles.statCardMobile : styles.statCard), backgroundColor: '#f0f9ff', borderLeft: '4px solid #0ea5e9' }}>
             <p style={isMobile ? styles.statLabelMobile : styles.statLabel}>Total Balance</p>
-            <p style={{ ...styles.statValue, color: '#0369a1' }}>{symbol}{totalCurrentBalance.toLocaleString()}</p>
-            <p style={styles.statSub}>across all casinos</p>
+            <p style={{ ...(isMobile ? styles.statValueMobile : styles.statValue), color: '#0369a1' }}>{symbol}{totalCurrentBalance.toLocaleString()}</p>
+            <p style={isMobile ? styles.statSubMobile : styles.statSub}>across all casinos</p>
           </div>
         </div>}
 
@@ -1135,28 +1135,32 @@ const styles = {
   lifetimeFilterBannerText: { color: '#0369a1', fontSize: '13px', margin: 0, lineHeight: '1.5' },
   lifetimeFilterBannerLink: { background: 'none', border: 'none', color: '#0369a1', fontSize: '13px', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontWeight: '600' },
   heroBanner: { background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', padding: '32px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  heroBannerMobile: { background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', padding: '24px 16px' },
+  heroBannerMobile: { background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', padding: '16px 16px' },
   heroLeft: {},
   heroLabel: { color: 'rgba(255,255,255,0.6)', fontSize: '12px', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '500' },
+  heroLabelMobile: { color: 'rgba(255,255,255,0.6)', fontSize: '10px', margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '500' },
   heroAmount: { fontSize: '42px', fontWeight: '800', margin: '0 0 8px 0', letterSpacing: '-2px', lineHeight: 1 },
   heroSub: { color: 'rgba(255,255,255,0.5)', fontSize: '13px', margin: 0 },
   heroRight: { display: 'flex', gap: '12px' },
   heroStat: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 18px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)' },
-  heroStatsMobile: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '16px' },
-  heroStatMobile: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px 12px', border: '1px solid rgba(255,255,255,0.1)' },
+  heroStatsMobile: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '10px' },
+  heroStatMobile: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '8px', padding: '7px 10px', border: '1px solid rgba(255,255,255,0.1)' },
   heroStatLabel: { color: 'rgba(255,255,255,0.5)', fontSize: '10px', margin: '0 0 4px 0', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '600' },
   heroStatValue: { color: 'white', fontSize: '14px', fontWeight: '700', margin: 0 },
+  heroStatValueMobile: { color: 'white', fontSize: '12px', fontWeight: '700', margin: 0 },
   timeFilterBar: { display: 'flex', gap: '6px', padding: '12px 16px', backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' },
   filterBtn: { padding: '5px 12px', borderRadius: '20px', border: '1px solid #e2e8f0', backgroundColor: 'white', color: '#64748b', fontSize: '12px', cursor: 'pointer', fontWeight: '500', whiteSpace: 'nowrap', flexShrink: 0 },
   filterBtnActive: { backgroundColor: '#0ea5e9', color: 'white', border: '1px solid #0ea5e9' },
   statsRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', padding: '20px 28px 0 28px' },
-  statsRowMobile: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '14px 16px 0 16px' },
+  statsRowMobile: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '8px 16px 0 16px' },
   statCard: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderLeft: '4px solid #e2e8f0' },
-  statCardMobile: { backgroundColor: 'white', borderRadius: '12px', padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderLeft: '4px solid #e2e8f0' },
+  statCardMobile: { backgroundColor: 'white', borderRadius: '10px', padding: '9px 10px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderLeft: '4px solid #e2e8f0' },
   statLabel: { color: '#94a3b8', fontSize: '10px', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '600' },
-  statLabelMobile: { color: '#94a3b8', fontSize: '9px', margin: '0 0 5px 0', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: '600' },
+  statLabelMobile: { color: '#94a3b8', fontSize: '9px', margin: '0 0 3px 0', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: '600' },
   statValue: { color: '#0f172a', fontSize: '22px', fontWeight: '800', margin: '0 0 4px 0', letterSpacing: '-0.5px' },
+  statValueMobile: { color: '#0f172a', fontSize: '18px', fontWeight: '800', margin: '0 0 2px 0', letterSpacing: '-0.5px' },
   statSub: { color: '#94a3b8', fontSize: '11px', margin: 0 },
+  statSubMobile: { color: '#94a3b8', fontSize: '10px', margin: 0 },
   limitsRow: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '16px 28px 0 28px' },
   limitsRowMobile: { display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px 16px 0 16px' },
   limitCard: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
@@ -1287,7 +1291,7 @@ const styles = {
   feedbackBtn: { position: 'fixed', bottom: '24px', right: '24px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '24px', padding: '12px 20px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', boxShadow: '0 4px 12px rgba(14,165,233,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', gap: '8px' },
   feedbackModal: { position: 'fixed', bottom: '80px', right: '24px', backgroundColor: 'white', borderRadius: '12px', padding: '20px', width: '300px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', zIndex: 200 },
   logSessionTopBarBtn: { display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' },
-  logSessionHeroBtn: { marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '9px 16px', backgroundColor: 'rgba(14,165,233,0.2)', border: '1px solid rgba(14,165,233,0.4)', borderRadius: '8px', color: '#7dd3fc', fontSize: '13px', fontWeight: '700', cursor: 'pointer', width: '100%' },
+  logSessionHeroBtn: { marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '7px 16px', backgroundColor: 'rgba(14,165,233,0.2)', border: '1px solid rgba(14,165,233,0.4)', borderRadius: '8px', color: '#7dd3fc', fontSize: '12px', fontWeight: '700', cursor: 'pointer', width: '100%' },
   logSessionPicker: { backgroundColor: 'white', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '340px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' },
   logSessionPickerHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' },
   logSessionPickerTitle: { color: '#0f172a', fontSize: '16px', fontWeight: '800', margin: 0 },
