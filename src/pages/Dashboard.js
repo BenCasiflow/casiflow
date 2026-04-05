@@ -296,31 +296,39 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
       const now = new Date();
       const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
 
-      // sessionStorage guard: survives component unmount/remount within the same
-      // browser session even if the Supabase column hasn't been migrated yet.
+      // Guard 1: New-user check.
+      // Never show the summary if the user registered this calendar month — there
+      // is no previous month of activity to summarise. If created_at is missing or
+      // unparseable treat it as "this month" so we fail safe and never show.
+      if (!profile.created_at) return;
+      const registeredAt = new Date(profile.created_at);
+      if (isNaN(registeredAt.getTime())) return;
+      if (
+        registeredAt.getMonth() === now.getMonth() &&
+        registeredAt.getFullYear() === now.getFullYear()
+      ) return;
+
+      // Guard 2: sessionStorage — survives component unmount/remount within the
+      // same browser session even if the Supabase column hasn't been migrated yet.
       if (sessionStorage.getItem('summaryShownMonth') === currentMonthKey) return;
 
-      // Supabase guard: persists across sessions/devices.
+      // Guard 3: Supabase — persists across sessions and devices.
       const lastShown = profile.last_summary_shown;
       if (lastShown) {
         const last = new Date(lastShown);
         if (now.getMonth() === last.getMonth() && now.getFullYear() === last.getFullYear()) {
-          // Already shown this calendar month — mark sessionStorage so we don't
-          // query Supabase on every remount for the rest of this session.
+          // Already shown this calendar month — cache in sessionStorage so we skip
+          // this branch on every subsequent remount for the rest of this session.
           sessionStorage.setItem('summaryShownMonth', currentMonthKey);
           return;
         }
       }
 
-      // We are going to show the modal. Mark both guards immediately —
-      // before the user even closes the modal — so that a page refresh or
-      // navigation within this session never re-triggers the modal.
+      // All guards passed — mark both immediately before showing the modal so that
+      // a page refresh or tab-close before the user clicks "Get Tracking!" can never
+      // cause the modal to appear a second time.
       sessionStorage.setItem('summaryShownMonth', currentMonthKey);
-
-      // Optimistically update last_summary_shown in Supabase right now.
-      // Doing this here (not in the close handler) ensures the date is persisted
-      // even if the user refreshes or closes the tab before clicking "Get Tracking!".
-      const today = new Date().toISOString().split('T')[0];
+      const today = now.toISOString().split('T')[0];
       supabase
         .from('profiles')
         .update({ last_summary_shown: today })
