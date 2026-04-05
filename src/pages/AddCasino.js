@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Building2, User, LogOut, Upload, CheckCircle, AlertCircle, TrendingUp, Gift, Wallet, Calendar, Hash, ArrowDownCircle, ArrowUpCircle, Plus } from 'lucide-react';
+import { LayoutDashboard, Building2, User, LogOut, Upload, CheckCircle, AlertCircle, TrendingUp, Gift, Wallet, Calendar, Hash, ArrowDownCircle, ArrowUpCircle, Plus, Star } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import AddTransactionModal from '../components/AddTransactionModal';
 import Footer from '../components/Footer';
@@ -179,6 +179,7 @@ function AddCasino({ user, profile, onLogout }) {
   // New casino state
   const [casinoName, setCasinoName] = useState('');
   const [note, setNote] = useState('');
+  const [rating, setRating] = useState(0);
   const [inputMode, setInputMode] = useState('lifetime');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -316,6 +317,7 @@ function AddCasino({ user, profile, onLogout }) {
         casino_name: casinoName,
         note: note || null,
         current_balance: inputMode === 'csv' && csvResults?.latestBalance != null ? csvResults.latestBalance : currentBalance || null,
+        rating: rating || null,
       })
       .select()
       .single();
@@ -632,6 +634,24 @@ function AddCasino({ user, profile, onLogout }) {
                 <label style={styles.label}>Note (optional)</label>
                 <input style={styles.input} type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. withdrawal pending, bonus expires soon" />
               </div>
+              <div style={styles.field}>
+                <label style={styles.label}>Rate this casino (optional)</label>
+                <div style={styles.starRating}>
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <Star
+                      key={star}
+                      size={24}
+                      fill={star <= rating ? '#f59e0b' : 'none'}
+                      color={star <= rating ? '#f59e0b' : '#d1d5db'}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setRating(star)}
+                    />
+                  ))}
+                  {rating > 0 && (
+                    <button style={styles.clearRatingBtn} onClick={() => setRating(0)}>Clear</button>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div style={styles.card}>
@@ -934,6 +954,8 @@ const styles = {
   mappingRow: { display: 'flex', flexDirection: 'column', gap: '6px' },
   mappingLabel: { display: 'flex', alignItems: 'center', gap: '8px', color: '#374151', fontSize: '13px', fontWeight: '600' },
   mappingLabelIcon: { display: 'flex', alignItems: 'center', flexShrink: 0 },
+  starRating: { display: 'flex', alignItems: 'center', gap: '4px' },
+  clearRatingBtn: { marginLeft: '10px', backgroundColor: 'transparent', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', padding: 0 },
 };
 
 export default AddCasino;

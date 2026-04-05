@@ -22,6 +22,10 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
   const [activeTab, setActiveTab] = useState('profile');
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
 
+  // Summary history state
+  const [summaries, setSummaries] = useState([]);
+  const [summariesLoading, setSummariesLoading] = useState(false);
+
   // Goals state
   const [goals, setGoals] = useState([]);
   const [goalsLoading, setGoalsLoading] = useState(false);
@@ -90,12 +94,29 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
     if (data) setUserCasinos(data);
   }, [user.id]);
 
+  const fetchSummaries = useCallback(async () => {
+    setSummariesLoading(true);
+    try {
+      const { data } = await supabase
+        .from('summaries')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      setSummaries(data || []);
+    } catch (_) {
+      setSummaries([]);
+    }
+    setSummariesLoading(false);
+  }, [user.id]);
+
   useEffect(() => {
     if (activeTab === 'goals') {
       fetchGoals();
       fetchCasinos();
+    } else if (activeTab === 'history') {
+      fetchSummaries();
     }
-  }, [activeTab, fetchGoals, fetchCasinos]);
+  }, [activeTab, fetchGoals, fetchCasinos, fetchSummaries]);
 
   // Compute auto-calculated current amount for a goal using transactions
   const computeCurrentAmount = useCallback(async (goalTypeVal, casinoId) => {
@@ -275,9 +296,9 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
     { id: 'profile', label: 'Profile', icon: <User size={18} />, path: '/profile' },
   ];
 
-  const tabs = ['profile', 'budget', 'goals', 'security', 'data'];
-  const tabLabels = { profile: 'Profile', budget: 'Budget & Limits', goals: 'Goals', security: 'Security', data: 'My Data' };
-  const tabLabelsMobile = { profile: 'Profile', budget: 'Budget', goals: 'Goals', security: 'Security', data: 'My Data' };
+  const tabs = ['profile', 'budget', 'goals', 'history', 'security', 'data'];
+  const tabLabels = { profile: 'Profile', budget: 'Budget & Limits', goals: 'Goals', history: 'History', security: 'Security', data: 'My Data' };
+  const tabLabelsMobile = { profile: 'Profile', budget: 'Budget', goals: 'Goals', history: 'History', security: 'Security', data: 'Data' };
 
   const goalTypeLabels = { deposit: 'Deposit', withdrawal: 'Withdrawal', net_position: 'Net Position', custom: 'Custom' };
 
@@ -613,6 +634,106 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
             </div>
           )}
 
+          {/* ── History tab ── */}
+          {activeTab === 'history' && (
+            <div>
+              <h3 style={styles.cardTitle}>Summary History</h3>
+              <p style={styles.cardSubtitle}>Your last 6 monthly summaries and most recent annual review.</p>
+              {summariesLoading ? (
+                <p style={styles.goalsEmptyText}>Loading history...</p>
+              ) : summaries.length === 0 ? (
+                <div style={styles.goalsEmptyState}>
+                  <div style={styles.goalsEmptyIcon}>
+                    <span style={{ fontSize: '28px' }}>📅</span>
+                  </div>
+                  <p style={styles.goalsEmptyTitle}>No summaries yet</p>
+                  <p style={styles.goalsEmptyText}>Your monthly summaries will appear here after each month-end review.</p>
+                </div>
+              ) : (
+                <div style={styles.summaryList}>
+                  {/* Annual summaries — show most recent 1 */}
+                  {summaries.filter(s => s.period_type === 'annual').slice(0, 1).map(s => {
+                    const isPositive = s.net_result >= 0;
+                    return (
+                      <div key={s.id} style={{ ...styles.summaryCard, borderLeft: `4px solid #8b5cf6` }}>
+                        <div style={styles.summaryCardHeader}>
+                          <div>
+                            <span style={styles.summaryAnnualBadge}>Annual Review</span>
+                            <p style={styles.summaryPeriod}>{s.period_label}</p>
+                          </div>
+                          <div style={{ ...styles.summaryNet, color: isPositive ? '#16a34a' : '#dc2626' }}>
+                            {isPositive ? '+' : '-'}{symbol}{Math.abs(Number(s.net_result)).toLocaleString()}
+                          </div>
+                        </div>
+                        <div style={styles.summaryStats}>
+                          <div style={styles.summaryStat}>
+                            <span style={styles.summaryStatLabel}>Deposited</span>
+                            <span style={styles.summaryStatValue}>{symbol}{Number(s.total_deposited).toLocaleString()}</span>
+                          </div>
+                          <div style={styles.summaryStat}>
+                            <span style={styles.summaryStatLabel}>Withdrawn</span>
+                            <span style={styles.summaryStatValue}>{symbol}{Number(s.total_withdrawn).toLocaleString()}</span>
+                          </div>
+                          {s.best_casino && (
+                            <div style={styles.summaryStat}>
+                              <span style={styles.summaryStatLabel}>Best Casino</span>
+                              <span style={styles.summaryStatValue}>{s.best_casino}</span>
+                            </div>
+                          )}
+                          <div style={styles.summaryStat}>
+                            <span style={styles.summaryStatLabel}>Goals</span>
+                            <span style={styles.summaryStatValue}>
+                              {s.goals_total === 0 ? '—' : `${s.goals_completed}/${s.goals_total}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Monthly summaries — last 6 */}
+                  {summaries.filter(s => s.period_type === 'monthly').slice(0, 6).map(s => {
+                    const isPositive = s.net_result >= 0;
+                    return (
+                      <div key={s.id} style={{ ...styles.summaryCard, borderLeft: `4px solid ${isPositive ? '#22c55e' : '#ef4444'}` }}>
+                        <div style={styles.summaryCardHeader}>
+                          <div>
+                            <span style={styles.summaryMonthlyBadge}>Monthly</span>
+                            <p style={styles.summaryPeriod}>{s.period_label}</p>
+                          </div>
+                          <div style={{ ...styles.summaryNet, color: isPositive ? '#16a34a' : '#dc2626' }}>
+                            {isPositive ? '+' : '-'}{symbol}{Math.abs(Number(s.net_result)).toLocaleString()}
+                          </div>
+                        </div>
+                        <div style={styles.summaryStats}>
+                          <div style={styles.summaryStat}>
+                            <span style={styles.summaryStatLabel}>Deposited</span>
+                            <span style={styles.summaryStatValue}>{symbol}{Number(s.total_deposited).toLocaleString()}</span>
+                          </div>
+                          <div style={styles.summaryStat}>
+                            <span style={styles.summaryStatLabel}>Withdrawn</span>
+                            <span style={styles.summaryStatValue}>{symbol}{Number(s.total_withdrawn).toLocaleString()}</span>
+                          </div>
+                          {s.best_casino && (
+                            <div style={styles.summaryStat}>
+                              <span style={styles.summaryStatLabel}>Best Casino</span>
+                              <span style={styles.summaryStatValue}>{s.best_casino}</span>
+                            </div>
+                          )}
+                          <div style={styles.summaryStat}>
+                            <span style={styles.summaryStatLabel}>Goals</span>
+                            <span style={styles.summaryStatValue}>
+                              {s.goals_total === 0 ? '—' : `${s.goals_completed}/${s.goals_total}`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Security tab ── */}
           {activeTab === 'security' && (
             <div style={styles.card}>
@@ -700,7 +821,7 @@ const styles = {
   content: { padding: '24px 28px', flex: 1 },
   contentMobile: { padding: '16px', flex: 1 },
   tabBar: { display: 'flex', gap: '4px', marginBottom: '24px', backgroundColor: 'white', padding: '6px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', width: 'fit-content' },
-  tabBarMobile: { display: 'flex', gap: '2px', marginBottom: '16px', backgroundColor: 'white', padding: '4px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', width: '100%' },
+  tabBarMobile: { display: 'flex', gap: '2px', marginBottom: '16px', backgroundColor: 'white', padding: '4px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' },
   tab: { padding: '8px 20px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', color: '#64748b', fontSize: '14px', fontWeight: '500', cursor: 'pointer' },
   tabMobile: { flex: 1, padding: '7px 2px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', color: '#64748b', fontSize: '11px', fontWeight: '500', cursor: 'pointer', whiteSpace: 'nowrap' },
   tabActive: { backgroundColor: '#0ea5e9', color: 'white', fontWeight: '600' },
@@ -765,6 +886,19 @@ const styles = {
   goalCustomUpdate: { display: 'flex', gap: '8px', marginTop: '12px' },
   goalCustomInput: { flex: 1, padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', backgroundColor: '#f8fafc' },
   goalCustomSaveBtn: { padding: '8px 16px', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' },
+
+  // Summary History tab
+  summaryList: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  summaryCard: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' },
+  summaryCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' },
+  summaryPeriod: { color: '#0f172a', fontSize: '15px', fontWeight: '700', margin: '4px 0 0 0' },
+  summaryNet: { fontSize: '20px', fontWeight: '800', letterSpacing: '-0.5px' },
+  summaryAnnualBadge: { backgroundColor: '#f5f3ff', color: '#7c3aed', fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.06em' },
+  summaryMonthlyBadge: { backgroundColor: '#f0f9ff', color: '#0369a1', fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.06em' },
+  summaryStats: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: '10px' },
+  summaryStat: { display: 'flex', flexDirection: 'column', gap: '3px' },
+  summaryStatLabel: { color: '#94a3b8', fontSize: '10px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.06em' },
+  summaryStatValue: { color: '#374151', fontSize: '13px', fontWeight: '600' },
 };
 
 export default Profile;

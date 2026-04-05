@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Building2, User, Download, Bell, Search, Star, MessageSquare, LogOut, Plus, ChevronDown, ChevronUp, Trash2, Edit2, Check, X, Info, FileText, TrendingUp, Target } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { supabase } from '../supabaseClient';
 import AddTransactionModal from '../components/AddTransactionModal';
 import Footer from '../components/Footer';
+import MonthlySummaryModal from '../components/MonthlySummaryModal';
 import { getCurrencyCode, getCurrencySymbol } from '../utils/currency';
 
 function getDateRange(filter) {
@@ -78,6 +79,77 @@ function calcTotals(transactions) {
   return { deposits, withdrawals, bonuses };
 }
 
+// Compute the data needed for a monthly or annual summary modal.
+// Runs outside the component so it never triggers hook rules.
+function computeSummaryData(allTransactions, goals, casinos, profile) {
+  const now = new Date();
+  const isJanuary = now.getMonth() === 0;
+
+  let start, end, type, periodLabel;
+
+  if (isJanuary) {
+    type = 'annual';
+    const year = now.getFullYear() - 1;
+    start = new Date(year, 0, 1, 0, 0, 0, 0);
+    end = new Date(year, 11, 31, 23, 59, 59, 999);
+    periodLabel = String(year);
+  } else {
+    type = 'monthly';
+    start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+    end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    const monthName = start.toLocaleDateString('en-GB', { month: 'long' });
+    periodLabel = `${monthName} ${start.getFullYear()}`;
+  }
+
+  const periodTransactions = allTransactions.filter(t => {
+    if (t.entry_method === 'lifetime') return false;
+    const d = new Date(t.date);
+    return d >= start && d <= end;
+  });
+
+  const totalDeposited = periodTransactions
+    .filter(t => t.type === 'deposit')
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const totalWithdrawn = periodTransactions
+    .filter(t => t.type === 'withdrawal')
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const netResult = totalWithdrawn - totalDeposited;
+
+  // Best casino — highest net (withdrawals − deposits) across the period
+  let bestCasino = null;
+  let bestNet = -Infinity;
+  for (const casino of casinos) {
+    const ct = periodTransactions.filter(t => t.casino_id === casino.id);
+    if (ct.length === 0) continue;
+    const deps = ct.filter(t => t.type === 'deposit').reduce((s, t) => s + Number(t.amount), 0);
+    const withs = ct.filter(t => t.type === 'withdrawal').reduce((s, t) => s + Number(t.amount), 0);
+    const net = withs - deps;
+    if (net > bestNet) { bestNet = net; bestCasino = casino.name; }
+  }
+
+  // Goals created during this period
+  const periodGoals = goals.filter(g => {
+    const created = new Date(g.created_at);
+    return created >= start && created <= end;
+  });
+  const goalsCompleted = periodGoals.filter(g => g.status === 'completed').length;
+  const goalsTotal = periodGoals.length;
+
+  // Limits check (monthly only)
+  const depositLimit = type === 'monthly' ? (Number(profile?.monthly_deposit_limit) || 0) : 0;
+  const netLossLimit = type === 'monthly' ? (Number(profile?.monthly_net_loss_limit) || 0) : 0;
+  const withinDepositLimit = depositLimit > 0 ? totalDeposited <= depositLimit : null;
+  const withinNetLossLimit = netLossLimit > 0
+    ? Math.max(0, totalDeposited - totalWithdrawn) <= netLossLimit
+    : null;
+
+  return {
+    type, periodLabel, netResult, totalDeposited, totalWithdrawn,
+    bestCasino, goalsCompleted, goalsTotal,
+    withinDepositLimit, withinNetLossLimit, depositLimit, netLossLimit,
+  };
+}
+
 function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   const [casinos, setCasinos] = useState([]);
   const [allTransactions, setAllTransactions] = useState([]);
@@ -101,6 +173,9 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   const [goals, setGoals] = useState([]);
   const [goalsExpanded, setGoalsExpanded] = useState(true);
   const [showLogSessionPicker, setShowLogSessionPicker] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
+  const summaryCheckedRef = useRef(false);
 
   const navigate = useNavigate();
   const firstName = sessionStorage.getItem('userFirstName') || profile?.full_name?.split(' ')[0] || '';
@@ -204,6 +279,74 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
     fetchCasinos();
     fetchGoals();
   }, [fetchCasinos, fetchGoals]);
+
+  // Check whether to show the monthly/annual summary modal.
+  // Runs once after data has loaded. The ?showSummary=true URL param
+  // forces the modal open (testing only — remove before final deployment).
+  useEffect(() => {
+    if (loading) return;
+    if (!profile) return;
+    if (summaryCheckedRef.current) return;
+    summaryCheckedRef.current = true;
+
+    const isTestMode = new URLSearchParams(window.location.search).get('showSummary') === 'true';
+
+    if (!isTestMode) {
+      const lastShown = profile.last_summary_shown;
+      if (lastShown) {
+        const now = new Date();
+        const last = new Date(lastShown);
+        if (now.getMonth() === last.getMonth() && now.getFullYear() === last.getFullYear()) {
+          return; // Already shown this month
+        }
+      }
+    }
+
+    const data = computeSummaryData(allTransactions, goals, casinos, profile);
+    setSummaryData(data);
+    setShowSummaryModal(true);
+  }, [loading, profile, allTransactions, goals, casinos]); // eslint-disable-line
+
+  const handleSummaryClose = async () => {
+    setShowSummaryModal(false);
+    if (!summaryData) return;
+
+    const isTestMode = new URLSearchParams(window.location.search).get('showSummary') === 'true';
+
+    // Persist the summary record for the History tab
+    try {
+      await supabase.from('summaries').insert({
+        user_id: user.id,
+        period_type: summaryData.type,
+        period_label: summaryData.periodLabel,
+        net_result: summaryData.netResult,
+        total_deposited: summaryData.totalDeposited,
+        total_withdrawn: summaryData.totalWithdrawn,
+        best_casino: summaryData.bestCasino,
+        goals_completed: summaryData.goalsCompleted,
+        goals_total: summaryData.goalsTotal,
+      });
+    } catch (_) {
+      // Non-blocking — summaries table may not exist yet
+    }
+
+    // Update last_summary_shown so we don't re-show this month
+    // Skip in test mode so ?showSummary=true keeps working on repeated visits
+    if (!isTestMode) {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const { data } = await supabase
+          .from('profiles')
+          .update({ last_summary_shown: today })
+          .eq('id', user.id)
+          .select()
+          .single();
+        if (data) onUpdateProfile(data);
+      } catch (_) {
+        // Non-blocking
+      }
+    }
+  };
 
   useEffect(() => {
     if (!profile) return;
@@ -368,13 +511,6 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
     return months;
   }, [allTransactions]);
 
-  const allGameStats = casinos.flatMap(c => c.gameStats || []).reduce((acc, g) => {
-    const existing = acc.find(a => a.game === g.game);
-    if (existing) existing.amount += g.amount;
-    else acc.push({ ...g });
-    return acc;
-  }, []).sort((a, b) => b.amount - a.amount);
-
   const filteredCasinos = casinoSummaries.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const getNotificationMessage = (percent, type) => {
@@ -460,6 +596,14 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
 
   return (
     <div style={styles.appContainer}>
+      {showSummaryModal && summaryData && (
+        <MonthlySummaryModal
+          summary={summaryData}
+          symbol={symbol}
+          onClose={handleSummaryClose}
+        />
+      )}
+
       {addTransactionCasino && (
         <AddTransactionModal
           casino={addTransactionCasino}
@@ -755,20 +899,6 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
                 </ResponsiveContainer>
               </div>
             </div>
-            {allGameStats.length > 0 && (
-              <div style={isMobile ? styles.gameStatsCardMobile : styles.gameStatsCard}>
-                <h3 style={styles.sectionTitle}>Game Performance</h3>
-                <div style={styles.gameStatsRow}>
-                  {allGameStats.map((g, i) => (
-                    <div key={i} style={styles.gameStatItem}>
-                      <p style={styles.gameStatName}>{g.game}</p>
-                      <p style={styles.gameStatAmount}>{symbol}{g.amount.toLocaleString()}</p>
-                      <div style={styles.gameStatBar}><div style={{ ...styles.gameStatBarFill, width: `${(g.amount / allGameStats[0].amount) * 100}%` }} /></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </>
         )}
 
@@ -1209,14 +1339,6 @@ const styles = {
   tooltip: { backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
   tooltipTitle: { color: '#1e293b', fontWeight: '700', fontSize: '13px', margin: '0 0 6px 0' },
   tooltipRow: { color: '#64748b', fontSize: '12px', margin: '3px 0' },
-  gameStatsCard: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', margin: '16px 28px 0 28px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
-  gameStatsCardMobile: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', margin: '12px 16px 0 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
-  gameStatsRow: { display: 'flex', flexDirection: 'column', gap: '10px' },
-  gameStatItem: { display: 'flex', alignItems: 'center', gap: '10px' },
-  gameStatName: { color: '#374151', fontSize: '13px', fontWeight: '600', margin: 0, width: '110px', flexShrink: 0 },
-  gameStatAmount: { color: '#0f172a', fontSize: '13px', fontWeight: '700', margin: 0, width: '70px', flexShrink: 0 },
-  gameStatBar: { flex: 1, height: '6px', backgroundColor: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' },
-  gameStatBarFill: { height: '100%', backgroundColor: '#0ea5e9', borderRadius: '3px' },
   recommendedCard: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', margin: '16px 28px 0 28px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '2px dashed #e2e8f0' },
   recommendedCardMobile: { backgroundColor: 'white', borderRadius: '12px', padding: '16px', margin: '12px 16px 0 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '2px dashed #e2e8f0' },
   recommendedHeader: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' },
