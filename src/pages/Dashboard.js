@@ -173,6 +173,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   const [goals, setGoals] = useState([]);
   const [goalsExpanded, setGoalsExpanded] = useState(true);
   const [showLogSessionPicker, setShowLogSessionPicker] = useState(false);
+  const [showCasinoPrompt, setShowCasinoPrompt] = useState(() => sessionStorage.getItem('casinoPromptDismissed') !== 'true');
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
   const summaryCheckedRef = useRef(false);
@@ -763,6 +764,23 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
           ))}
         </div>
 
+        {casinos.length === 1 && showCasinoPrompt && (
+          <div style={isMobile ? styles.casinoPromptBannerMobile : styles.casinoPromptBanner}>
+            <Info size={16} color="#0369a1" style={{ flexShrink: 0, marginTop: '1px' }} />
+            <p style={styles.casinoPromptText}>
+              Got more casinos? Add them all to see your true net position across every platform.
+            </p>
+            <Link to="/add-casino" style={styles.casinoPromptBtn}>+ Add Casino</Link>
+            <button
+              style={styles.casinoPromptClose}
+              onClick={() => { sessionStorage.setItem('casinoPromptDismissed', 'true'); setShowCasinoPrompt(false); }}
+              aria-label="Dismiss"
+            >
+              <X size={14} color="#0369a1" />
+            </button>
+          </div>
+        )}
+
         {!(isMobile && casinos.length === 0) && <div style={isMobile ? styles.statsRowMobile : styles.statsRow}>
           <div style={isMobile ? styles.statCardMobile : styles.statCard}>
             <p style={isMobile ? styles.statLabelMobile : styles.statLabel}>Total Deposited</p>
@@ -1268,6 +1286,11 @@ const styles = {
   lifetimeNoticeBanner: { padding: '10px 16px', backgroundColor: '#f0f9ff', borderBottom: '1px solid #bae6fd', fontSize: '13px', color: '#0369a1' },
   lifetimeFilterBanner: { display: 'flex', alignItems: 'flex-start', gap: '10px', margin: '12px 28px 0 28px', padding: '12px 14px', backgroundColor: '#e0f2fe', border: '1px solid #0ea5e9', borderRadius: '10px' },
   lifetimeFilterBannerMobile: { display: 'flex', alignItems: 'flex-start', gap: '10px', margin: '10px 16px 0 16px', padding: '10px 12px', backgroundColor: '#e0f2fe', border: '1px solid #0ea5e9', borderRadius: '10px' },
+  casinoPromptBanner: { display: 'flex', alignItems: 'center', gap: '10px', margin: '12px 28px 0 28px', padding: '11px 14px', backgroundColor: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '10px' },
+  casinoPromptBannerMobile: { display: 'flex', alignItems: 'center', gap: '8px', margin: '10px 16px 0 16px', padding: '10px 12px', backgroundColor: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '10px' },
+  casinoPromptText: { color: '#0369a1', fontSize: '13px', margin: 0, lineHeight: '1.4', flex: 1 },
+  casinoPromptBtn: { color: 'white', backgroundColor: '#0ea5e9', fontSize: '12px', fontWeight: '700', padding: '5px 12px', borderRadius: '7px', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 },
+  casinoPromptClose: { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', flexShrink: 0, opacity: 0.7 },
   lifetimeFilterBannerText: { color: '#0369a1', fontSize: '13px', margin: 0, lineHeight: '1.5' },
   lifetimeFilterBannerLink: { background: 'none', border: 'none', color: '#0369a1', fontSize: '13px', cursor: 'pointer', padding: 0, textDecoration: 'underline', fontWeight: '600' },
   heroBanner: { background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', padding: '32px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
