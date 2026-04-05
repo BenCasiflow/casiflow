@@ -281,7 +281,7 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   }, [fetchCasinos, fetchGoals]);
 
   // Check whether to show the monthly/annual summary modal.
-  // Runs once after data has loaded. The ?showSummary=true URL param
+  // Runs once per session after data has loaded. The ?showSummary=true URL param
   // forces the modal open (testing only — remove before final deployment).
   useEffect(() => {
     if (loading) return;
@@ -292,14 +292,41 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
     const isTestMode = new URLSearchParams(window.location.search).get('showSummary') === 'true';
 
     if (!isTestMode) {
+      const now = new Date();
+      const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
+
+      // sessionStorage guard: survives component unmount/remount within the same
+      // browser session even if the Supabase column hasn't been migrated yet.
+      if (sessionStorage.getItem('summaryShownMonth') === currentMonthKey) return;
+
+      // Supabase guard: persists across sessions/devices.
       const lastShown = profile.last_summary_shown;
       if (lastShown) {
-        const now = new Date();
         const last = new Date(lastShown);
         if (now.getMonth() === last.getMonth() && now.getFullYear() === last.getFullYear()) {
-          return; // Already shown this month
+          // Already shown this calendar month — mark sessionStorage so we don't
+          // query Supabase on every remount for the rest of this session.
+          sessionStorage.setItem('summaryShownMonth', currentMonthKey);
+          return;
         }
       }
+
+      // We are going to show the modal. Mark both guards immediately —
+      // before the user even closes the modal — so that a page refresh or
+      // navigation within this session never re-triggers the modal.
+      sessionStorage.setItem('summaryShownMonth', currentMonthKey);
+
+      // Optimistically update last_summary_shown in Supabase right now.
+      // Doing this here (not in the close handler) ensures the date is persisted
+      // even if the user refreshes or closes the tab before clicking "Get Tracking!".
+      const today = new Date().toISOString().split('T')[0];
+      supabase
+        .from('profiles')
+        .update({ last_summary_shown: today })
+        .eq('id', user.id)
+        .select()
+        .single()
+        .then(({ data }) => { if (data) onUpdateProfile(data); });
     }
 
     const data = computeSummaryData(allTransactions, goals, casinos, profile);
@@ -311,41 +338,20 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
     setShowSummaryModal(false);
     if (!summaryData) return;
 
-    const isTestMode = new URLSearchParams(window.location.search).get('showSummary') === 'true';
-
-    // Persist the summary record for the History tab
-    try {
-      await supabase.from('summaries').insert({
-        user_id: user.id,
-        period_type: summaryData.type,
-        period_label: summaryData.periodLabel,
-        net_result: summaryData.netResult,
-        total_deposited: summaryData.totalDeposited,
-        total_withdrawn: summaryData.totalWithdrawn,
-        best_casino: summaryData.bestCasino,
-        goals_completed: summaryData.goalsCompleted,
-        goals_total: summaryData.goalsTotal,
-      });
-    } catch (_) {
-      // Non-blocking — summaries table may not exist yet
-    }
-
-    // Update last_summary_shown so we don't re-show this month
-    // Skip in test mode so ?showSummary=true keeps working on repeated visits
-    if (!isTestMode) {
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        const { data } = await supabase
-          .from('profiles')
-          .update({ last_summary_shown: today })
-          .eq('id', user.id)
-          .select()
-          .single();
-        if (data) onUpdateProfile(data);
-      } catch (_) {
-        // Non-blocking
-      }
-    }
+    // Persist the summary record for the History tab (non-blocking).
+    supabase.from('summaries').insert({
+      user_id: user.id,
+      period_type: summaryData.type,
+      period_label: summaryData.periodLabel,
+      net_result: summaryData.netResult,
+      total_deposited: summaryData.totalDeposited,
+      total_withdrawn: summaryData.totalWithdrawn,
+      best_casino: summaryData.bestCasino,
+      goals_completed: summaryData.goalsCompleted,
+      goals_total: summaryData.goalsTotal,
+    }).then(() => {});
+    // last_summary_shown is now saved optimistically when the modal is shown,
+    // so there is nothing left to do here regarding suppression logic.
   };
 
   useEffect(() => {
