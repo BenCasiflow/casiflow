@@ -209,14 +209,6 @@ function Signup({ onSignupComplete }) {
       {/* ── Right panel ── */}
       <div style={isMobile ? styles.rightPanelMobile : styles.rightPanel}>
 
-        {/* Mobile header — sits above the white card */}
-        {isMobile && (
-          <div style={styles.mobileHeader}>
-            <h1 style={styles.mobileBrandName}>Casiflow</h1>
-            <p style={styles.mobileBrandTagline}>Because the house always knows its numbers. Now you can too.</p>
-          </div>
-        )}
-
         <div style={isMobile ? styles.formCardMobile : styles.formCard}>
           <h2 style={styles.formTitle}>Create your free account</h2>
           <p style={styles.formSubtitle}>Always free to use — takes less than 2 minutes</p>
@@ -323,12 +315,7 @@ const styles = {
 
   // Right panel
   rightPanel: { flex: 1, backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' },
-  rightPanelMobile: { flex: 1, background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '32px 20px 32px 20px', minHeight: '100vh' },
-
-  // Mobile header (above form card)
-  mobileHeader: { textAlign: 'center', marginBottom: '20px', width: '100%' },
-  mobileBrandName: { color: '#38bdf8', fontSize: '30px', fontWeight: '800', margin: '0 0 8px 0', letterSpacing: '-1px' },
-  mobileBrandTagline: { color: 'rgba(255,255,255,0.75)', fontSize: '14px', lineHeight: '1.55', margin: 0 },
+  rightPanelMobile: { flex: 1, background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px', minHeight: '100vh' },
 
   // Form card
   formCard: { backgroundColor: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '560px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' },
