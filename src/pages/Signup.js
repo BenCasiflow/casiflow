@@ -10,6 +10,7 @@ function Signup({ onSignupComplete }) {
   const [jurisdiction, setJurisdiction] = useState('');
   const [currency, setCurrency] = useState('');
   const [monthlyIncome, setMonthlyIncome] = useState('');
+  const [depositLimit, setDepositLimit] = useState('');
   const [netLossLimit, setNetLossLimit] = useState('');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
@@ -140,6 +141,7 @@ function Signup({ onSignupComplete }) {
       country: jurisdiction,
       currency: currency,
       monthly_net_income: monthlyIncome ? Number(monthlyIncome) : null,
+      monthly_deposit_limit: depositLimit ? Number(depositLimit) : null,
       monthly_net_loss_limit: netLossLimit ? Number(netLossLimit) : null,
       terms_accepted: true,
     });
@@ -150,8 +152,6 @@ function Signup({ onSignupComplete }) {
       return;
     }
 
-    // Store name in sessionStorage so both Onboarding and Dashboard
-    // can show it instantly without waiting for Supabase
     sessionStorage.setItem('newUserName', name);
     sessionStorage.setItem('userFirstName', name.split(' ')[0]);
     sessionStorage.setItem('userCountry', jurisdiction);
@@ -163,11 +163,22 @@ function Signup({ onSignupComplete }) {
 
   return (
     <div style={styles.container}>
+      {/* Focus styles for inputs — inline styles can't target :focus pseudo-class */}
+      <style>{`
+        .cf-signup-input:focus {
+          outline: none;
+          border-color: #0ea5e9 !important;
+          background-color: #ffffff !important;
+          box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12) !important;
+        }
+      `}</style>
+
+      {/* ── Desktop left panel ── */}
       {!isMobile && (
         <div style={styles.leftPanel}>
           <div style={styles.leftContent}>
             <h1 style={styles.brandName}>Casiflow</h1>
-            <p style={styles.brandTagline}>The players who win long term are the ones who know their numbers. Start tracking today.</p>
+            <p style={styles.brandTagline}>Because the house always knows its numbers. Now you can too.</p>
             <div style={styles.steps}>
               <div style={styles.step}>
                 <div style={styles.stepNumber}>1</div>
@@ -195,14 +206,18 @@ function Signup({ onSignupComplete }) {
         </div>
       )}
 
+      {/* ── Right panel ── */}
       <div style={isMobile ? styles.rightPanelMobile : styles.rightPanel}>
+
+        {/* Mobile header — sits above the white card */}
+        {isMobile && (
+          <div style={styles.mobileHeader}>
+            <h1 style={styles.mobileBrandName}>Casiflow</h1>
+            <p style={styles.mobileBrandTagline}>Because the house always knows its numbers. Now you can too.</p>
+          </div>
+        )}
+
         <div style={isMobile ? styles.formCardMobile : styles.formCard}>
-          {isMobile && (
-            <div style={styles.mobileHeader}>
-              <h1 style={styles.mobileBrandName}>Casiflow</h1>
-              <p style={styles.mobileBrandTagline}>The players who win long term are the ones who know their numbers.</p>
-            </div>
-          )}
           <h2 style={styles.formTitle}>Create your free account</h2>
           <p style={styles.formSubtitle}>Always free to use — takes less than 2 minutes</p>
           {error && <div style={styles.errorBox}>{error}</div>}
@@ -210,28 +225,28 @@ function Signup({ onSignupComplete }) {
             <div style={isMobile ? styles.fieldFull : styles.row}>
               <div style={styles.field}>
                 <label style={styles.label}>Full Name *</label>
-                <input style={styles.input} type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Smith" />
+                <input className="cf-signup-input" style={styles.input} type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Smith" />
               </div>
               <div style={styles.field}>
                 <label style={styles.label}>Email *</label>
-                <input style={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" />
+                <input className="cf-signup-input" style={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" />
               </div>
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Password *</label>
-              <input style={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Choose a strong password" />
+              <input className="cf-signup-input" style={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Choose a strong password" />
             </div>
             <div style={isMobile ? styles.fieldFull : styles.row}>
               <div style={styles.field}>
                 <label style={styles.label}>Country *</label>
-                <select style={styles.input} value={jurisdiction} onChange={handleJurisdictionChange}>
+                <select className="cf-signup-input" style={styles.input} value={jurisdiction} onChange={handleJurisdictionChange}>
                   <option value="">Select country</option>
                   {countries.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div style={styles.field}>
                 <label style={styles.label}>Currency *</label>
-                <select style={styles.input} value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                <select className="cf-signup-input" style={styles.input} value={currency} onChange={(e) => setCurrency(e.target.value)}>
                   <option value="">Select currency</option>
                   {currencies.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -239,16 +254,25 @@ function Signup({ onSignupComplete }) {
             </div>
 
             <div style={styles.divider} />
-            <p style={styles.sectionLabel}>Budget Settings <span style={styles.optional}>(optional but recommended)</span></p>
+            <p style={styles.sectionLabel}>
+              Budget Settings <span style={styles.optional}>(optional but recommended)</span>
+            </p>
+            <p style={styles.budgetDesc}>
+              Set your monthly budget once. Casiflow tracks it automatically so you always know where you stand.
+            </p>
 
+            <div style={styles.field}>
+              <label style={styles.label}>Monthly Net Income</label>
+              <input className="cf-signup-input" style={styles.input} type="number" value={monthlyIncome} onChange={(e) => setMonthlyIncome(e.target.value)} placeholder="e.g. 3000" />
+            </div>
             <div style={isMobile ? styles.fieldFull : styles.row}>
               <div style={styles.field}>
-                <label style={styles.label}>Monthly Net Income</label>
-                <input style={styles.input} type="number" value={monthlyIncome} onChange={(e) => setMonthlyIncome(e.target.value)} placeholder="e.g. 3000" />
+                <label style={styles.label}>Monthly Deposit Limit</label>
+                <input className="cf-signup-input" style={styles.input} type="number" value={depositLimit} onChange={(e) => setDepositLimit(e.target.value)} placeholder="e.g. 500" />
               </div>
               <div style={styles.field}>
                 <label style={styles.label}>Monthly Net Loss Limit</label>
-                <input style={styles.input} type="number" value={netLossLimit} onChange={(e) => setNetLossLimit(e.target.value)} placeholder="e.g. 200" />
+                <input className="cf-signup-input" style={styles.input} type="number" value={netLossLimit} onChange={(e) => setNetLossLimit(e.target.value)} placeholder="e.g. 200" />
               </div>
             </div>
 
@@ -285,6 +309,8 @@ function Signup({ onSignupComplete }) {
 
 const styles = {
   container: { display: 'flex', minHeight: '100vh', fontFamily: "'Segoe UI', Arial, sans-serif" },
+
+  // Left panel
   leftPanel: { width: '380px', background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 36px' },
   leftContent: { maxWidth: '320px' },
   brandName: { color: '#38bdf8', fontSize: '36px', fontWeight: '800', margin: '0 0 16px 0', letterSpacing: '-1px' },
@@ -294,31 +320,50 @@ const styles = {
   stepNumber: { width: '32px', height: '32px', backgroundColor: '#38bdf8', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0f172a', fontWeight: '800', fontSize: '14px', flexShrink: 0 },
   stepTitle: { color: 'white', fontSize: '14px', fontWeight: '600', margin: '0 0 4px 0' },
   stepDesc: { color: 'rgba(255,255,255,0.6)', fontSize: '13px', margin: 0 },
+
+  // Right panel
   rightPanel: { flex: 1, backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' },
-  rightPanelMobile: { flex: 1, background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px', minHeight: '100vh' },
+  rightPanelMobile: { flex: 1, background: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0369a1 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: '32px 20px 32px 20px', minHeight: '100vh' },
+
+  // Mobile header (above form card)
+  mobileHeader: { textAlign: 'center', marginBottom: '20px', width: '100%' },
+  mobileBrandName: { color: '#38bdf8', fontSize: '30px', fontWeight: '800', margin: '0 0 8px 0', letterSpacing: '-1px' },
+  mobileBrandTagline: { color: 'rgba(255,255,255,0.75)', fontSize: '14px', lineHeight: '1.55', margin: 0 },
+
+  // Form card
   formCard: { backgroundColor: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '560px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' },
-  formCardMobile: { backgroundColor: 'white', borderRadius: '20px', padding: '28px 24px', width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)', marginTop: '16px', marginBottom: '16px' },
-  mobileHeader: { textAlign: 'center', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #f1f5f9' },
-  mobileBrandName: { color: '#0ea5e9', fontSize: '28px', fontWeight: '800', margin: '0 0 8px 0', letterSpacing: '-1px' },
-  mobileBrandTagline: { color: '#64748b', fontSize: '13px', lineHeight: '1.5', margin: 0 },
+  formCardMobile: { backgroundColor: 'white', borderRadius: '20px', padding: '28px 24px', width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)', marginBottom: '24px' },
+
   formTitle: { color: '#0f172a', fontSize: '22px', fontWeight: '800', margin: '0 0 6px 0' },
   formSubtitle: { color: '#64748b', fontSize: '14px', margin: '0 0 20px 0' },
   errorBox: { backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', marginBottom: '16px' },
+
   row: { display: 'flex', gap: '16px' },
   fieldFull: { display: 'flex', flexDirection: 'column' },
   field: { flex: 1, marginBottom: '16px' },
   label: { display: 'block', marginBottom: '6px', color: '#374151', fontSize: '14px', fontWeight: '600' },
-  input: { width: '100%', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '16px', boxSizing: 'border-box', backgroundColor: '#f8fafc', color: '#1e293b' },
+  input: {
+    width: '100%', padding: '12px 14px',
+    border: '1.5px solid #e2e8f0', borderRadius: '10px',
+    fontSize: '16px', boxSizing: 'border-box',
+    backgroundColor: '#f8fafc', color: '#1e293b',
+    transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease',
+  },
+
   divider: { height: '1px', backgroundColor: '#e2e8f0', margin: '8px 0 16px 0' },
-  sectionLabel: { color: '#374151', fontSize: '14px', fontWeight: '600', margin: '0 0 16px 0' },
+  sectionLabel: { color: '#374151', fontSize: '14px', fontWeight: '600', margin: '0 0 6px 0' },
   optional: { color: '#94a3b8', fontSize: '12px', fontWeight: '400' },
+  budgetDesc: { color: '#94a3b8', fontSize: '12px', lineHeight: '1.5', margin: '0 0 16px 0' },
+
   profileBox: { borderRadius: '10px', padding: '14px', marginBottom: '16px' },
   profilePercent: { fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' },
   profileText: { fontSize: '13px', lineHeight: '1.6', margin: 0 },
+
   consentRow: { display: 'flex', alignItems: 'flex-start', gap: '10px', margin: '16px 0' },
   checkbox: { marginTop: '2px', cursor: 'pointer', width: '18px', height: '18px', flexShrink: 0 },
   consentLabel: { color: '#64748b', fontSize: '13px', lineHeight: '1.5', cursor: 'pointer' },
   consentLink: { color: '#0ea5e9', textDecoration: 'none', fontWeight: '600' },
+
   button: { width: '100%', padding: '16px', background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 12px rgba(14,165,233,0.3)' },
   switchText: { textAlign: 'center', marginTop: '20px', fontSize: '14px', color: '#64748b' },
   switchLink: { color: '#0ea5e9', textDecoration: 'none', fontWeight: '600' },
