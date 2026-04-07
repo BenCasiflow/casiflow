@@ -10,6 +10,8 @@ import Profile from './pages/Profile';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsAndConditions from './pages/TermsAndConditions';
 import ResponsibleGambling from './pages/ResponsibleGambling';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import './App.css';
 
 function App() {
@@ -125,6 +127,8 @@ function App() {
         <Route path="/privacy-policy" element={<PrivacyPolicy user={user} onLogout={handleLogout} />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions user={user} onLogout={handleLogout} />} />
         <Route path="/responsible-gambling" element={<ResponsibleGambling user={user} profile={profile} onLogout={handleLogout} />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     </Router>
   );
