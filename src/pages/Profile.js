@@ -458,6 +458,12 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
                 </div>
                 <div style={isMobile ? styles.fieldFull : styles.row}>
                   <div style={styles.field}>
+                    <label style={styles.label}>Date of Birth</label>
+                    <input style={styles.disabledInput} type="date" value={profile?.date_of_birth || ''} disabled />
+                  </div>
+                </div>
+                <div style={isMobile ? styles.fieldFull : styles.row}>
+                  <div style={styles.field}>
                     <label style={styles.label}>Country</label>
                     <select style={styles.input} value={country} onChange={(e) => setCountry(e.target.value)}>
                       <option value="">Select country</option>

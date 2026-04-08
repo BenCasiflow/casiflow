@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 function Signup({ onSignupComplete }) {
   const navigate = useNavigate();
   const [name, setName] = useState('');
+  const [dob, setDob] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [jurisdiction, setJurisdiction] = useState('');
@@ -112,14 +113,31 @@ function Signup({ onSignupComplete }) {
   const spendingProfile = getSpendingProfile();
   const percent = monthlyIncome && netLossLimit ? ((netLossLimit / monthlyIncome) * 100).toFixed(1) : null;
 
+  // Returns age in whole years, accounting for whether this year's birthday has passed.
+  const calcAge = (dobString) => {
+    const today = new Date();
+    const birth = new Date(dobString);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!name || !email || !password || !jurisdiction || !currency) {
+    if (!name || !dob || !email || !password || !jurisdiction || !currency) {
       setError('Please fill in all required fields');
       return;
     }
+
+    // Age gate — must be 18 or older
+    if (calcAge(dob) < 18) {
+      setError('You must be 18 or older to use Casiflow. This platform is intended for adults only.');
+      return;
+    }
+
     if (!consent) {
       setError('Please agree to the Terms & Conditions and Privacy Policy to continue');
       return;
@@ -138,6 +156,7 @@ function Signup({ onSignupComplete }) {
     const { error: profileError } = await supabase.from('profiles').insert({
       id: data.user.id,
       full_name: name,
+      date_of_birth: dob,
       country: jurisdiction,
       currency: currency,
       monthly_net_income: monthlyIncome ? Number(monthlyIncome) : null,
@@ -160,6 +179,11 @@ function Signup({ onSignupComplete }) {
     onSignupComplete(name);
     navigate('/onboarding');
   };
+
+  // Latest allowable DOB for the date picker (must be 18+ today)
+  const today = new Date();
+  const maxDob = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())
+    .toISOString().split('T')[0];
 
   return (
     <div style={styles.container}>
@@ -208,7 +232,6 @@ function Signup({ onSignupComplete }) {
 
       {/* ── Right panel ── */}
       <div style={isMobile ? styles.rightPanelMobile : styles.rightPanel}>
-
         <div style={isMobile ? styles.formCardMobile : styles.formCard}>
           <h2 style={styles.formTitle}>Create your free account</h2>
           <p style={styles.formSubtitle}>Always free to use — takes less than 2 minutes</p>
@@ -220,9 +243,21 @@ function Signup({ onSignupComplete }) {
                 <input className="cf-signup-input" style={styles.input} type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Smith" />
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Email *</label>
-                <input className="cf-signup-input" style={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" />
+                <label style={styles.label}>Date of Birth *</label>
+                <input
+                  className="cf-signup-input"
+                  style={styles.input}
+                  type="date"
+                  value={dob}
+                  onChange={(e) => setDob(e.target.value)}
+                  max={maxDob}
+                  min="1900-01-01"
+                />
               </div>
+            </div>
+            <div style={styles.field}>
+              <label style={styles.label}>Email *</label>
+              <input className="cf-signup-input" style={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" />
             </div>
             <div style={styles.field}>
               <label style={styles.label}>Password *</label>
