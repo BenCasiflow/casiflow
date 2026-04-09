@@ -113,46 +113,12 @@ function Signup({ onSignupComplete }) {
   const spendingProfile = getSpendingProfile();
   const percent = monthlyIncome && netLossLimit ? ((netLossLimit / monthlyIncome) * 100).toFixed(1) : null;
 
-  // Parse DOB string manually to avoid iOS Safari's UTC-vs-local-time bug.
-  // new Date("YYYY-MM-DD") is parsed as UTC midnight on iOS Safari, which means
-  // .getDate()/.getMonth() may return yesterday's date in negative-UTC-offset
-  // timezones, silently breaking the age comparison. Parsing each component as a
-  // plain integer and comparing against today's local date fields avoids this entirely.
-  const calcAge = (dobString) => {
-    if (!dobString) return null;
-    const parts = dobString.split('-');
-    if (parts.length !== 3) return null;
-    const birthYear = parseInt(parts[0], 10);
-    const birthMonth = parseInt(parts[1], 10); // 1-indexed
-    const birthDay = parseInt(parts[2], 10);
-    if (isNaN(birthYear) || isNaN(birthMonth) || isNaN(birthDay)) return null;
-
-    const today = new Date();
-    const todayYear = today.getFullYear();
-    const todayMonth = today.getMonth() + 1; // getMonth() is 0-indexed; convert to 1-indexed
-    const todayDay = today.getDate();
-
-    let age = todayYear - birthYear;
-    // Subtract 1 if this year's birthday hasn't arrived yet
-    if (todayMonth < birthMonth || (todayMonth === birthMonth && todayDay < birthDay)) {
-      age--;
-    }
-    return age;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     if (!name || !dob || !email || !password || !jurisdiction || !currency) {
       setError('Please fill in all required fields');
-      return;
-    }
-
-    // Age gate — must be 18 or older
-    const age = calcAge(dob);
-    if (age === null || age < 18) {
-      setError('You must be 18 or older to use Casiflow. This platform is intended for adults only.');
       return;
     }
 
@@ -198,10 +164,11 @@ function Signup({ onSignupComplete }) {
     navigate('/onboarding');
   };
 
-  // Latest allowable DOB for the date picker hint (must be 18+ today)
+  // Latest allowable DOB — the date picker will not allow selecting a date after this,
+  // preventing users under 18 from completing the form.
   const today = new Date();
-  const maxDob = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())
-    .toISOString().split('T')[0];
+  const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+  const maxDob = maxDate.toISOString().split('T')[0];
 
   return (
     <div style={styles.container}>
