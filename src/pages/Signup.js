@@ -15,6 +15,7 @@ function Signup({ onSignupComplete }) {
   const [netLossLimit, setNetLossLimit] = useState('');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
+  const [ageError, setAgeError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
 
@@ -85,6 +86,37 @@ function Signup({ onSignupComplete }) {
     setCurrency(COUNTRY_CURRENCY[selected] || 'EUR');
   };
 
+  // Parse DOB string manually to avoid iOS Safari's UTC-vs-local-time bug.
+  // new Date("YYYY-MM-DD") is parsed as UTC midnight on iOS Safari, which means
+  // .getDate()/.getMonth() may return yesterday's date in negative-UTC-offset
+  // timezones, silently breaking the age comparison. Parsing each component as a
+  // plain integer and comparing against today's local date fields avoids this entirely.
+  const calcAge = (dobString) => {
+    if (!dobString) return null;
+    const parts = dobString.split('-');
+    if (parts.length !== 3) return null;
+    const birthYear = parseInt(parts[0], 10);
+    const birthMonth = parseInt(parts[1], 10); // 1-indexed
+    const birthDay = parseInt(parts[2], 10);
+    if (isNaN(birthYear) || isNaN(birthMonth) || isNaN(birthDay)) return null;
+    const now = new Date();
+    const todayYear = now.getFullYear();
+    const todayMonth = now.getMonth() + 1; // getMonth() is 0-indexed; convert to 1-indexed
+    const todayDay = now.getDate();
+    let age = todayYear - birthYear;
+    if (todayMonth < birthMonth || (todayMonth === birthMonth && todayDay < birthDay)) age--;
+    return age;
+  };
+
+  const handleDobChange = (e) => {
+    const val = e.target.value;
+    setDob(val);
+    // Clear the age banner as soon as the selected DOB passes the 18+ check
+    if (ageError && calcAge(val) >= 18) {
+      setAgeError(false);
+    }
+  };
+
   const getSpendingProfile = () => {
     if (!monthlyIncome || !netLossLimit) return null;
     const percent = (netLossLimit / monthlyIncome) * 100;
@@ -119,6 +151,14 @@ function Signup({ onSignupComplete }) {
 
     if (!name || !dob || !email || !password || !jurisdiction || !currency) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    // Age gate — JS validation is the real enforcement; max attribute is a hint only
+    // (iOS Safari does not reliably enforce the max attribute on date inputs)
+    const age = calcAge(dob);
+    if (age === null || age < 18) {
+      setAgeError(true);
       return;
     }
 
@@ -164,8 +204,8 @@ function Signup({ onSignupComplete }) {
     navigate('/onboarding');
   };
 
-  // Latest allowable DOB — the date picker will not allow selecting a date after this,
-  // preventing users under 18 from completing the form.
+  // Latest allowable DOB for the date picker hint (must be 18+ today).
+  // Built from local date components so the string is always correct regardless of timezone.
   const today = new Date();
   const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
   const maxDob = maxDate.toISOString().split('T')[0];
@@ -226,6 +266,15 @@ function Signup({ onSignupComplete }) {
         <div style={isMobile ? styles.formCardMobile : styles.formCard}>
           <h2 style={styles.formTitle}>Create your free account</h2>
           <p style={styles.formSubtitle}>Always free to use — takes less than 2 minutes</p>
+
+          {/* Age gate banner — sits above all fields, persists until DOB is corrected */}
+          {ageError && (
+            <div style={styles.ageBanner}>
+              <span style={styles.ageBannerIcon}>⛔</span>
+              <span style={styles.ageBannerText}>You must be 18 or older to use Casiflow.</span>
+            </div>
+          )}
+
           {error && <div style={styles.errorBox}>{error}</div>}
           <form onSubmit={handleSubmit}>
             <div style={isMobile ? styles.fieldFull : styles.row}>
@@ -237,10 +286,10 @@ function Signup({ onSignupComplete }) {
                 <label style={styles.label}>Date of Birth *</label>
                 <input
                   className="cf-signup-input"
-                  style={styles.input}
+                  style={ageError ? { ...styles.input, borderColor: '#dc2626' } : styles.input}
                   type="date"
                   value={dob}
-                  onChange={(e) => setDob(e.target.value)}
+                  onChange={handleDobChange}
                   max={maxDob}
                   min="1900-01-01"
                 />
@@ -349,6 +398,12 @@ const styles = {
 
   formTitle: { color: '#0f172a', fontSize: '22px', fontWeight: '800', margin: '0 0 6px 0' },
   formSubtitle: { color: '#64748b', fontSize: '14px', margin: '0 0 20px 0' },
+
+  // Age gate banner — large, bold, impossible to miss
+  ageBanner: { display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: '#dc2626', borderRadius: '10px', padding: '16px 18px', marginBottom: '20px' },
+  ageBannerIcon: { fontSize: '20px', flexShrink: 0 },
+  ageBannerText: { color: 'white', fontSize: '16px', fontWeight: '700', lineHeight: '1.4' },
+
   errorBox: { backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', marginBottom: '16px' },
 
   row: { display: 'flex', gap: '16px' },
