@@ -5,7 +5,12 @@ import { supabase } from '../supabaseClient';
 function Signup({ onSignupComplete }) {
   const navigate = useNavigate();
   const [name, setName] = useState('');
+  // Desktop DOB — single date input
   const [dob, setDob] = useState('');
+  // Mobile DOB — three separate selects
+  const [dobDay, setDobDay] = useState('');
+  const [dobMonth, setDobMonth] = useState('');
+  const [dobYear, setDobYear] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [jurisdiction, setJurisdiction] = useState('');
@@ -86,11 +91,23 @@ function Signup({ onSignupComplete }) {
     setCurrency(COUNTRY_CURRENCY[selected] || 'EUR');
   };
 
+  // Month names for the mobile DOB select
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  // Year options descending: current year down to current year - 100
+  const currentYear = new Date().getFullYear();
+  const yearOptions = [];
+  for (let y = currentYear; y >= currentYear - 100; y--) {
+    yearOptions.push(y);
+  }
+
   // Parse DOB string manually to avoid iOS Safari's UTC-vs-local-time bug.
   // new Date("YYYY-MM-DD") is parsed as UTC midnight on iOS Safari, which means
   // .getDate()/.getMonth() may return yesterday's date in negative-UTC-offset
-  // timezones, silently breaking the age comparison. Parsing each component as a
-  // plain integer and comparing against today's local date fields avoids this entirely.
+  // timezones, silently breaking the age comparison.
   const calcAge = (dobString) => {
     if (!dobString) return null;
     const parts = dobString.split('-');
@@ -101,20 +118,49 @@ function Signup({ onSignupComplete }) {
     if (isNaN(birthYear) || isNaN(birthMonth) || isNaN(birthDay)) return null;
     const now = new Date();
     const todayYear = now.getFullYear();
-    const todayMonth = now.getMonth() + 1; // getMonth() is 0-indexed; convert to 1-indexed
+    const todayMonth = now.getMonth() + 1;
     const todayDay = now.getDate();
     let age = todayYear - birthYear;
     if (todayMonth < birthMonth || (todayMonth === birthMonth && todayDay < birthDay)) age--;
     return age;
   };
 
+  // Build YYYY-MM-DD string from the three mobile selects (returns '' if any missing)
+  const getMobileDobString = (day, month, year) => {
+    if (!day || !month || !year) return '';
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  // Clear the age banner as soon as the mobile DOB combination passes the 18+ check
+  const clearAgeErrorIfValid = (day, month, year) => {
+    if (!ageError) return;
+    const dobStr = getMobileDobString(day, month, year);
+    if (dobStr && calcAge(dobStr) >= 18) setAgeError(false);
+  };
+
+  const handleDobDayChange = (e) => {
+    const val = e.target.value;
+    setDobDay(val);
+    clearAgeErrorIfValid(val, dobMonth, dobYear);
+  };
+
+  const handleDobMonthChange = (e) => {
+    const val = e.target.value;
+    setDobMonth(val);
+    clearAgeErrorIfValid(dobDay, val, dobYear);
+  };
+
+  const handleDobYearChange = (e) => {
+    const val = e.target.value;
+    setDobYear(val);
+    clearAgeErrorIfValid(dobDay, dobMonth, val);
+  };
+
+  // Desktop DOB change — clear age banner if the new date is 18+
   const handleDobChange = (e) => {
     const val = e.target.value;
     setDob(val);
-    // Clear the age banner as soon as the selected DOB passes the 18+ check
-    if (ageError && calcAge(val) >= 18) {
-      setAgeError(false);
-    }
+    if (ageError && calcAge(val) >= 18) setAgeError(false);
   };
 
   const getSpendingProfile = () => {
@@ -145,18 +191,29 @@ function Signup({ onSignupComplete }) {
   const spendingProfile = getSpendingProfile();
   const percent = monthlyIncome && netLossLimit ? ((netLossLimit / monthlyIncome) * 100).toFixed(1) : null;
 
+  // Latest allowable DOB for the desktop date picker hint
+  const today = new Date();
+  const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+  const maxDob = maxDate.toISOString().split('T')[0];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!name || !dob || !email || !password || !jurisdiction || !currency) {
+    // Build the DOB string depending on which input method is active
+    const dobString = isMobile
+      ? getMobileDobString(dobDay, dobMonth, dobYear)
+      : dob;
+
+    // Required fields — use dobString for the DOB check
+    const mobileDobMissing = isMobile && (!dobDay || !dobMonth || !dobYear);
+    if (!name || mobileDobMissing || (!isMobile && !dob) || !email || !password || !jurisdiction || !currency) {
       setError('Please fill in all required fields');
       return;
     }
 
-    // Age gate — JS validation is the real enforcement; max attribute is a hint only
-    // (iOS Safari does not reliably enforce the max attribute on date inputs)
-    const age = calcAge(dob);
+    // Age gate — JS validation is the real enforcement on all platforms
+    const age = calcAge(dobString);
     if (age === null || age < 18) {
       setAgeError(true);
       return;
@@ -180,7 +237,7 @@ function Signup({ onSignupComplete }) {
     const { error: profileError } = await supabase.from('profiles').insert({
       id: data.user.id,
       full_name: name,
-      date_of_birth: dob,
+      date_of_birth: dobString,
       country: jurisdiction,
       currency: currency,
       monthly_net_income: monthlyIncome ? Number(monthlyIncome) : null,
@@ -204,11 +261,10 @@ function Signup({ onSignupComplete }) {
     navigate('/onboarding');
   };
 
-  // Latest allowable DOB for the date picker hint (must be 18+ today).
-  // Built from local date components so the string is always correct regardless of timezone.
-  const today = new Date();
-  const maxDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-  const maxDob = maxDate.toISOString().split('T')[0];
+  // Red border style applied to DOB inputs when age gate fires
+  const dobInputStyle = ageError
+    ? { ...styles.input, borderColor: '#dc2626' }
+    : styles.input;
 
   return (
     <div style={styles.container}>
@@ -219,8 +275,7 @@ function Signup({ onSignupComplete }) {
           background-color: #ffffff !important;
           box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12) !important;
         }
-        /* Normalise date input on iOS Safari so it matches other inputs exactly.
-           Without this, iOS renders extra internal chrome that makes the field taller. */
+        /* Normalise date input on iOS Safari so it matches other inputs exactly. */
         .cf-signup-input[type="date"] {
           -webkit-appearance: none;
           appearance: none;
@@ -277,24 +332,74 @@ function Signup({ onSignupComplete }) {
 
           {error && <div style={styles.errorBox}>{error}</div>}
           <form onSubmit={handleSubmit}>
+
+            {/* Full Name + Date of Birth row */}
             <div style={isMobile ? styles.fieldFull : styles.row}>
               <div style={styles.field}>
                 <label style={styles.label}>Full Name *</label>
-                <input className="cf-signup-input" style={styles.input} type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Smith" />
+                <input
+                  className="cf-signup-input"
+                  style={styles.input}
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="John Smith"
+                />
               </div>
               <div style={styles.field}>
                 <label style={styles.label}>Date of Birth *</label>
-                <input
-                  className="cf-signup-input"
-                  style={ageError ? { ...styles.input, borderColor: '#dc2626' } : styles.input}
-                  type="date"
-                  value={dob}
-                  onChange={handleDobChange}
-                  max={maxDob}
-                  min="1900-01-01"
-                />
+                {isMobile ? (
+                  /* Three-select DOB picker for mobile */
+                  <div style={styles.dobDropdownRow}>
+                    <select
+                      className="cf-signup-input"
+                      style={dobInputStyle}
+                      value={dobDay}
+                      onChange={handleDobDayChange}
+                    >
+                      <option value="">Day</option>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                        <option key={d} value={String(d)}>{d}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="cf-signup-input"
+                      style={dobInputStyle}
+                      value={dobMonth}
+                      onChange={handleDobMonthChange}
+                    >
+                      <option value="">Month</option>
+                      {monthNames.map((m, i) => (
+                        <option key={m} value={String(i + 1)}>{m}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="cf-signup-input"
+                      style={dobInputStyle}
+                      value={dobYear}
+                      onChange={handleDobYearChange}
+                    >
+                      <option value="">Year</option>
+                      {yearOptions.map(y => (
+                        <option key={y} value={String(y)}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  /* Single date input for desktop */
+                  <input
+                    className="cf-signup-input"
+                    style={dobInputStyle}
+                    type="date"
+                    value={dob}
+                    onChange={handleDobChange}
+                    max={maxDob}
+                    min="1900-01-01"
+                  />
+                )}
               </div>
             </div>
+
             <div style={styles.field}>
               <label style={styles.label}>Email *</label>
               <input className="cf-signup-input" style={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" />
@@ -417,6 +522,9 @@ const styles = {
     backgroundColor: '#f8fafc', color: '#1e293b',
     transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease',
   },
+
+  // Three-select DOB row for mobile
+  dobDropdownRow: { display: 'flex', gap: '8px' },
 
   divider: { height: '1px', backgroundColor: '#e2e8f0', margin: '8px 0 16px 0' },
   sectionLabel: { color: '#374151', fontSize: '14px', fontWeight: '600', margin: '0 0 6px 0' },
