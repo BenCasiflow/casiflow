@@ -113,13 +113,30 @@ function Signup({ onSignupComplete }) {
   const spendingProfile = getSpendingProfile();
   const percent = monthlyIncome && netLossLimit ? ((netLossLimit / monthlyIncome) * 100).toFixed(1) : null;
 
-  // Returns age in whole years, accounting for whether this year's birthday has passed.
+  // Parse DOB string manually to avoid iOS Safari's UTC-vs-local-time bug.
+  // new Date("YYYY-MM-DD") is parsed as UTC midnight on iOS Safari, which means
+  // .getDate()/.getMonth() may return yesterday's date in negative-UTC-offset
+  // timezones, silently breaking the age comparison. Parsing each component as a
+  // plain integer and comparing against today's local date fields avoids this entirely.
   const calcAge = (dobString) => {
+    if (!dobString) return null;
+    const parts = dobString.split('-');
+    if (parts.length !== 3) return null;
+    const birthYear = parseInt(parts[0], 10);
+    const birthMonth = parseInt(parts[1], 10); // 1-indexed
+    const birthDay = parseInt(parts[2], 10);
+    if (isNaN(birthYear) || isNaN(birthMonth) || isNaN(birthDay)) return null;
+
     const today = new Date();
-    const birth = new Date(dobString);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth() + 1; // getMonth() is 0-indexed; convert to 1-indexed
+    const todayDay = today.getDate();
+
+    let age = todayYear - birthYear;
+    // Subtract 1 if this year's birthday hasn't arrived yet
+    if (todayMonth < birthMonth || (todayMonth === birthMonth && todayDay < birthDay)) {
+      age--;
+    }
     return age;
   };
 
@@ -133,7 +150,8 @@ function Signup({ onSignupComplete }) {
     }
 
     // Age gate — must be 18 or older
-    if (calcAge(dob) < 18) {
+    const age = calcAge(dob);
+    if (age === null || age < 18) {
       setError('You must be 18 or older to use Casiflow. This platform is intended for adults only.');
       return;
     }
@@ -180,20 +198,26 @@ function Signup({ onSignupComplete }) {
     navigate('/onboarding');
   };
 
-  // Latest allowable DOB for the date picker (must be 18+ today)
+  // Latest allowable DOB for the date picker hint (must be 18+ today)
   const today = new Date();
   const maxDob = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())
     .toISOString().split('T')[0];
 
   return (
     <div style={styles.container}>
-      {/* Focus styles for inputs — inline styles can't target :focus pseudo-class */}
       <style>{`
         .cf-signup-input:focus {
           outline: none;
           border-color: #0ea5e9 !important;
           background-color: #ffffff !important;
           box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12) !important;
+        }
+        /* Normalise date input on iOS Safari so it matches other inputs exactly.
+           Without this, iOS renders extra internal chrome that makes the field taller. */
+        .cf-signup-input[type="date"] {
+          -webkit-appearance: none;
+          appearance: none;
+          line-height: normal;
         }
       `}</style>
 
