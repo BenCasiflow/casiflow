@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm run:*)",
-      "Bash(CI=true npm run build)"
+      "Bash(CI=true npm run build)",
+      "Bash(powershell -Command 'Get-ChildItem '\\\\''C:\\\\Users\\\\broze\\\\casiflow\\\\casiflow-website\\\\*.html'\\\\'' | ForEach-Object { \\(Get-Content $_.FullName -Raw\\) -replace '\\\\''https://app\\\\.casiflow\\\\.com/login'\\\\'', '\\\\''https://app.casiflow.com'\\\\'' | Set-Content $_.FullName -NoNewline }')",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\broze\\\\casiflow\\\\casiflow-website\\\\add-favicon.ps1\")"
     ]
   }
 }
