@@ -124,8 +124,8 @@ function App() {
         <Route path="/dashboard" element={user ? <Dashboard user={user} profile={profile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} /> : <Navigate to="/" />} />
         <Route path="/add-casino" element={user ? <AddCasino user={user} profile={profile} onLogout={handleLogout} /> : <Navigate to="/" />} />
         <Route path="/profile" element={user ? <Profile user={user} profile={profile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} /> : <Navigate to="/" />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy user={user} onLogout={handleLogout} />} />
-        <Route path="/terms-and-conditions" element={<TermsAndConditions user={user} onLogout={handleLogout} />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy user={user} profile={profile} onLogout={handleLogout} />} />
+        <Route path="/terms-and-conditions" element={<TermsAndConditions user={user} profile={profile} onLogout={handleLogout} />} />
         <Route path="/responsible-gambling" element={<ResponsibleGambling user={user} profile={profile} onLogout={handleLogout} />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
