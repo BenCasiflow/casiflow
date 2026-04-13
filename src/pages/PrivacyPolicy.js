@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 function PrivacyPolicy() {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
@@ -13,7 +14,7 @@ function PrivacyPolicy() {
   return (
     <div style={styles.page}>
       <div style={isMobile ? styles.topBarMobile : styles.topBar}>
-        <span style={styles.brand}>Casiflow</span>
+        <Link to="/dashboard" style={styles.logoLink}><span style={styles.brand}>Casiflow</span></Link>
       </div>
 
       <div style={isMobile ? styles.wrapperMobile : styles.wrapper}>
@@ -175,6 +176,7 @@ const styles = {
   page: { minHeight: '100vh', backgroundColor: '#f1f5f9', fontFamily: "'Segoe UI', Arial, sans-serif" },
   topBar: { display: 'flex', alignItems: 'center', padding: '16px 28px', backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 50 },
   topBarMobile: { display: 'flex', alignItems: 'center', padding: '12px 16px', backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, zIndex: 50 },
+  logoLink: { textDecoration: 'none' },
   brand: { color: '#0ea5e9', fontSize: '20px', fontWeight: '800', letterSpacing: '-0.5px' },
   wrapper: { maxWidth: '760px', margin: '0 auto', padding: '32px 24px' },
   wrapperMobile: { padding: '16px' },
