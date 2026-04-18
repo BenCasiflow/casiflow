@@ -265,12 +265,14 @@ function Signup({ onSignupComplete }) {
     }
 
     // Record T&C acceptance — non-blocking; signup continues regardless
+    console.log('[terms_acceptance] inserting — user_id:', data.user.id, '| version: 1.0');
     supabase.from('terms_acceptance').insert({
       user_id: data.user.id,
       version: '1.0',
       ip_address: ipAddress,
-    }).then(({ error: termsError }) => {
-      if (termsError) console.error('terms_acceptance insert failed:', termsError);
+    }).then((response) => {
+      console.log('[terms_acceptance] insert response:', response);
+      if (response.error) console.error('terms_acceptance insert failed:', response.error);
     });
 
     sessionStorage.setItem('newUserName', name);
