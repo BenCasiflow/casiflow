@@ -181,7 +181,7 @@ function TermsAndConditions({ user, profile, onLogout }) {
 
               <div style={styles.section}>
                 <h2 style={styles.sectionHeading}>14. Changes to These Terms</h2>
-                <p style={styles.body}>We may update these Terms and Conditions from time to time to reflect changes in our practices or legal requirements. We will notify you of any significant changes by email or through the Service. Your continued use of Casiflow after changes are posted constitutes your acceptance of the updated terms.</p>
+                <p style={styles.body}>These Terms and Conditions may be amended, updated, or replaced at any time at the sole discretion of Casiflow. It is your responsibility as a user to review these Terms and Conditions periodically to ensure that you remain informed of the current terms governing your use of the Casiflow platform. Your continued use of the Service following any such amendments shall constitute your acknowledgement of and agreement to the updated Terms and Conditions.</p>
               </div>
 
               <div style={styles.divider} />

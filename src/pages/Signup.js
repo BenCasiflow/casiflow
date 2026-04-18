@@ -226,6 +226,18 @@ function Signup({ onSignupComplete }) {
 
     setLoading(true);
 
+    // Best-effort IP fetch — nullable, 3 s timeout, never blocks signup
+    let ipAddress = null;
+    try {
+      const ipRes = await Promise.race([
+        fetch('https://api.ipify.org?format=json').then(r => r.json()),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+      ]);
+      ipAddress = ipRes?.ip || null;
+    } catch {
+      // Proceed without IP
+    }
+
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
 
     if (signUpError) {
@@ -251,6 +263,15 @@ function Signup({ onSignupComplete }) {
       setLoading(false);
       return;
     }
+
+    // Record T&C acceptance — non-blocking; signup continues regardless
+    supabase.from('terms_acceptance').insert({
+      user_id: data.user.id,
+      version: '1.0',
+      ip_address: ipAddress,
+    }).then(({ error: termsError }) => {
+      if (termsError) console.error('terms_acceptance insert failed:', termsError);
+    });
 
     sessionStorage.setItem('newUserName', name);
     sessionStorage.setItem('userFirstName', name.split(' ')[0]);
