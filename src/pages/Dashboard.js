@@ -161,6 +161,8 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [feedback, setFeedback] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
   const [showNotification, setShowNotification] = useState(true);
   const [activeNav, setActiveNav] = useState('dashboard');
@@ -565,12 +567,32 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
     URL.revokeObjectURL(url);
   };
 
-  const handleFeedback = () => {
-    if (feedback.trim()) {
-      setFeedbackSent(true);
-      setFeedback('');
-      setTimeout(() => { setShowFeedback(false); setFeedbackSent(false); }, 2000);
+  const handleFeedback = async () => {
+    if (!feedback.trim()) return;
+    setFeedbackSending(true);
+    setFeedbackError('');
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profile?.full_name || '',
+          email: user.email,
+          subject: 'Feedback',
+          message: feedback.trim(),
+        }),
+      });
+      if (res.ok) {
+        setFeedbackSent(true);
+        setFeedback('');
+        setTimeout(() => { setShowFeedback(false); setFeedbackSent(false); }, 2000);
+      } else {
+        setFeedbackError('Something went wrong — please try again or email us directly at support@casiflow.com');
+      }
+    } catch {
+      setFeedbackError('Something went wrong — please try again or email us directly at support@casiflow.com');
     }
+    setFeedbackSending(false);
   };
 
   const getAvatarColor = (name) => {
@@ -1251,10 +1273,13 @@ function Dashboard({ user, profile, onLogout, onUpdateProfile }) {
               <h4 style={{ margin: '0 0 12px 0', color: '#1e293b' }}>Got a suggestion?</h4>
               {feedbackSent ? <p style={{ color: '#16a34a' }}>Thanks for your feedback!</p> : (
                 <>
-                  <textarea style={styles.feedbackInput} placeholder="Tell us how we can improve..." value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+                  <textarea style={styles.feedbackInput} placeholder="Tell us how we can improve..." value={feedback} onChange={(e) => { setFeedback(e.target.value); setFeedbackError(''); }} />
+                  {feedbackError && <p style={{ color: '#dc2626', fontSize: '12px', margin: '-4px 0 10px 0', lineHeight: '1.5' }}>{feedbackError}</p>}
                   <div style={styles.feedbackActions}>
-                    <button onClick={() => setShowFeedback(false)} style={styles.cancelBtn}>Cancel</button>
-                    <button onClick={handleFeedback} style={styles.submitBtn}>Send</button>
+                    <button onClick={() => { setShowFeedback(false); setFeedbackError(''); }} style={styles.cancelBtn} disabled={feedbackSending}>Cancel</button>
+                    <button onClick={handleFeedback} style={{ ...styles.submitBtn, opacity: feedbackSending ? 0.6 : 1, cursor: feedbackSending ? 'not-allowed' : 'pointer' }} disabled={feedbackSending}>
+                      {feedbackSending ? 'Sending...' : 'Send'}
+                    </button>
                   </div>
                 </>
               )}
