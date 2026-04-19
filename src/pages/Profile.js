@@ -436,6 +436,12 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
                 {isMobile ? tabLabelsMobile[tab] : tabLabels[tab]}
               </button>
             ))}
+            <Link
+              to="/support"
+              style={{ ...(isMobile ? styles.tabMobile : styles.tab), textDecoration: 'none', display: 'inline-block' }}
+            >
+              Support
+            </Link>
           </div>
 
           {error && <div style={styles.errorBox}>{error}</div>}

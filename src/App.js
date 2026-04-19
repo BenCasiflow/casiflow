@@ -7,6 +7,7 @@ import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import AddCasino from './pages/AddCasino';
 import Profile from './pages/Profile';
+import Support from './pages/Support';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsAndConditions from './pages/TermsAndConditions';
 import ResponsibleGambling from './pages/ResponsibleGambling';
@@ -124,6 +125,7 @@ function App() {
         <Route path="/dashboard" element={user ? <Dashboard user={user} profile={profile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} /> : <Navigate to="/" />} />
         <Route path="/add-casino" element={user ? <AddCasino user={user} profile={profile} onLogout={handleLogout} /> : <Navigate to="/" />} />
         <Route path="/profile" element={user ? <Profile user={user} profile={profile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} /> : <Navigate to="/" />} />
+        <Route path="/support" element={user ? <Support user={user} profile={profile} onLogout={handleLogout} /> : <Navigate to="/" />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy user={user} profile={profile} onLogout={handleLogout} />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions user={user} profile={profile} onLogout={handleLogout} />} />
         <Route path="/responsible-gambling" element={<ResponsibleGambling user={user} profile={profile} onLogout={handleLogout} />} />
