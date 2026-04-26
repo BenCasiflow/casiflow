@@ -289,7 +289,8 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
     setExportError('');
     try {
       // ── Fetch auth user for email + created_at ──
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { data: { user: authUser }, error: authErr } = await supabase.auth.getUser();
+      if (authErr) throw authErr;
 
       // ── Fetch profile ──
       const { data: profileData, error: profileErr } = await supabase
@@ -318,7 +319,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
       // ── Fetch casinos ──
       const { data: casinos, error: casinosErr } = await supabase
         .from('casinos')
-        .select('id, name')
+        .select('id, casino_name, current_balance')
         .eq('user_id', authUser.id);
       if (casinosErr) throw casinosErr;
 
@@ -337,12 +338,14 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
         if (tx.type === 'deposit') totalDeposited += Number(tx.amount);
         else if (tx.type === 'withdrawal') totalWithdrawn += Number(tx.amount);
       });
-      const overallNet = totalWithdrawn - totalDeposited;
+      const totalCurrentBalance = casinos.reduce((sum, c) => sum + (Number(c.current_balance) || 0), 0);
+      const overallNet = totalWithdrawn - totalDeposited + totalCurrentBalance;
       const summaryRows = [
         ['Field', 'Value'],
         ['Total deposited across all casinos', fmt(totalDeposited)],
         ['Total withdrawn across all casinos', fmt(totalWithdrawn)],
         ['Overall net result', fmt(overallNet)],
+        ['Total current balance across all casinos', fmt(totalCurrentBalance)],
         ['Number of casinos tracked', casinos.length],
       ];
 
@@ -358,25 +361,30 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
       // ── One sheet per casino ──
       casinos.forEach(casino => {
         const casinoTxs = transactions.filter(tx => tx.casino_id === casino.id);
-        const casinoRows = [['Date', 'Type', 'Amount']];
+        const casinoRows = [['Date', 'Type', 'Amount', 'Running Balance']];
         let dep = 0;
         let with_ = 0;
+        let runningBalance = 0;
         casinoTxs.forEach(tx => {
           const isDeposit = tx.type === 'deposit';
           const amount = Number(tx.amount);
-          if (isDeposit) dep += amount; else with_ += amount;
+          if (isDeposit) { dep += amount; runningBalance -= amount; }
+          else { with_ += amount; runningBalance += amount; }
           casinoRows.push([
             tx.date || '',
             isDeposit ? 'Deposit' : 'Withdrawal',
             `${isDeposit ? '-' : '+'}${currSymbol}${amount.toLocaleString()}`,
+            `${runningBalance >= 0 ? '+' : ''}${currSymbol}${runningBalance.toLocaleString()}`,
           ]);
         });
-        casinoRows.push([], ['Total Deposited', '', fmt(dep)]);
-        casinoRows.push(['Total Withdrawn', '', fmt(with_)]);
-        casinoRows.push(['Net Result', '', fmt(with_ - dep)]);
+        const casinoBalance = Number(casino.current_balance) || 0;
+        casinoRows.push([], ['Total Deposited', '', fmt(dep), '']);
+        casinoRows.push(['Total Withdrawn', '', fmt(with_), '']);
+        casinoRows.push(['Current Balance', '', fmt(casinoBalance), '']);
+        casinoRows.push(['Net Result', '', fmt(with_ - dep + casinoBalance), '']);
 
         // Sheet names must be ≤31 chars and can't contain invalid chars
-        const sheetName = casino.name.replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31);
+        const sheetName = (casino.casino_name || 'Casino').replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31);
         const ws = XLSX.utils.aoa_to_sheet(casinoRows);
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
       });
