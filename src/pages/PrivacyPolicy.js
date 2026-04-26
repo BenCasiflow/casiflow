@@ -104,9 +104,10 @@ function PrivacyPolicy({ user, profile, onLogout }) {
                   <li style={styles.listItem}>To send you account-related notifications and alerts — <em>Performance of a contract</em></li>
                   <li style={styles.listItem}>To respond to your enquiries and support requests — <em>Legitimate interests</em></li>
                   <li style={styles.listItem}>To improve and develop the Service — <em>Legitimate interests</em></li>
+                  <li style={styles.listItem}>To display casino recommendations from trusted operators in your country of residence — <em>Legitimate interests</em></li>
                   <li style={styles.listItem}>To comply with legal obligations — <em>Legal obligation</em></li>
                 </ul>
-                <p style={styles.body}>We do not sell your personal data to third parties. We do not share your data with casinos. We do not use your data for advertising purposes.</p>
+                <p style={styles.body}>We do not sell your personal data to third parties. We do not share your data with casinos. We do not use your data for third party advertising purposes. We may use your country of residence to display casino recommendations from trusted operators in your jurisdiction. These recommendations may generate affiliate commission for Casiflow. This is disclosed transparently in our Affiliate Disclosure below.</p>
               </div>
 
               <div style={styles.divider} />
@@ -114,6 +115,7 @@ function PrivacyPolicy({ user, profile, onLogout }) {
               <div style={styles.section}>
                 <h2 style={styles.sectionHeading}>5. Affiliate Disclosure</h2>
                 <p style={styles.body}>Casiflow may earn affiliate commission when users sign up to casino operators through links displayed within the Service. This is disclosed transparently and does not affect the data or insights we show you. We do not share your personal data with affiliate partners.</p>
+                <p style={styles.body}>Where casino recommendations are displayed within the Service, your country of residence is used solely to ensure that recommended operators are trusted partners in your jurisdiction. Your personal data is never shared with affiliate partners.</p>
               </div>
 
               <div style={styles.divider} />
@@ -199,7 +201,7 @@ function PrivacyPolicy({ user, profile, onLogout }) {
 
               <div style={styles.section}>
                 <h2 style={styles.sectionHeading}>15. Changes to This Policy</h2>
-                <p style={styles.body}>We may update this Privacy Policy from time to time to reflect changes in our practices or legal requirements. We will notify you of any significant changes by email or through the Service. Your continued use of the Service after any changes constitutes your acceptance of the updated policy.</p>
+                <p style={styles.body}>We may update this Privacy Policy from time to time to reflect changes in our practices or legal requirements. It is your responsibility to review this Privacy Policy periodically to ensure you remain informed of how we handle your personal data. The date at the top of this policy indicates when it was last updated. Your continued use of the Service after any changes constitutes your acceptance of the updated policy.</p>
               </div>
 
               <div style={styles.divider} />
