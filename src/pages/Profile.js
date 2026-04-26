@@ -4,6 +4,7 @@ import { LayoutDashboard, Building2, User, LogOut, Target, Plus, Trash2, Chevron
 import { supabase } from '../supabaseClient';
 import Footer from '../components/Footer';
 import { getCurrencySymbol, CURRENCY_CODES } from '../utils/currency';
+import * as XLSX from 'xlsx';
 
 function Profile({ user, profile, onLogout, onUpdateProfile }) {
   const [name, setName] = useState('');
@@ -41,6 +42,8 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
   const [deletingGoalId, setDeletingGoalId] = useState(null);
   const [updatingGoalId, setUpdatingGoalId] = useState(null);
   const [customAmounts, setCustomAmounts] = useState({});
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
@@ -281,7 +284,112 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
     setTimeout(() => setPasswordSaved(false), 2000);
   };
 
-  const handleExportCSV = () => { alert('CSV export coming soon.'); };
+  const handleExportXLSX = async () => {
+    setExportLoading(true);
+    setExportError('');
+    try {
+      // ── Fetch auth user for email + created_at ──
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+
+      // ── Fetch profile ──
+      const { data: profileData, error: profileErr } = await supabase
+        .from('profiles')
+        .select('full_name, country, currency, date_of_birth, monthly_deposit_limit, monthly_net_loss_limit, monthly_net_income')
+        .eq('id', authUser.id)
+        .single();
+      if (profileErr) throw profileErr;
+
+      const currSymbol = getCurrencySymbol(profileData.currency || 'EUR');
+      const fmt = (v) => v != null ? `${currSymbol}${Number(v).toLocaleString()}` : 'Not set';
+
+      // ── Sheet 1: Account & Settings ──
+      const accountRows = [
+        ['Field', 'Value'],
+        ['Email address', authUser.email || ''],
+        ['Country of residence', profileData.country || ''],
+        ['Currency preference', profileData.currency || ''],
+        ['Date of birth', profileData.date_of_birth || ''],
+        ['Account created date', authUser.created_at ? authUser.created_at.slice(0, 10) : ''],
+        ['Monthly deposit limit', profileData.monthly_deposit_limit != null ? fmt(profileData.monthly_deposit_limit) : 'Not set'],
+        ['Monthly net loss limit', profileData.monthly_net_loss_limit != null ? fmt(profileData.monthly_net_loss_limit) : 'Not set'],
+        ['Monthly net income', profileData.monthly_net_income != null ? fmt(profileData.monthly_net_income) : 'Not set'],
+      ];
+
+      // ── Fetch casinos ──
+      const { data: casinos, error: casinosErr } = await supabase
+        .from('casinos')
+        .select('id, name')
+        .eq('user_id', authUser.id);
+      if (casinosErr) throw casinosErr;
+
+      // ── Fetch all transactions ──
+      const { data: transactions, error: txErr } = await supabase
+        .from('transactions')
+        .select('casino_id, type, amount, date')
+        .eq('user_id', authUser.id)
+        .order('date', { ascending: true });
+      if (txErr) throw txErr;
+
+      // ── Sheet 2: Overall Summary ──
+      let totalDeposited = 0;
+      let totalWithdrawn = 0;
+      transactions.forEach(tx => {
+        if (tx.type === 'deposit') totalDeposited += Number(tx.amount);
+        else if (tx.type === 'withdrawal') totalWithdrawn += Number(tx.amount);
+      });
+      const overallNet = totalWithdrawn - totalDeposited;
+      const summaryRows = [
+        ['Field', 'Value'],
+        ['Total deposited across all casinos', fmt(totalDeposited)],
+        ['Total withdrawn across all casinos', fmt(totalWithdrawn)],
+        ['Overall net result', fmt(overallNet)],
+        ['Number of casinos tracked', casinos.length],
+      ];
+
+      // ── Build workbook ──
+      const wb = XLSX.utils.book_new();
+
+      const ws1 = XLSX.utils.aoa_to_sheet(accountRows);
+      XLSX.utils.book_append_sheet(wb, ws1, 'Account & Settings');
+
+      const ws2 = XLSX.utils.aoa_to_sheet(summaryRows);
+      XLSX.utils.book_append_sheet(wb, ws2, 'Overall Summary');
+
+      // ── One sheet per casino ──
+      casinos.forEach(casino => {
+        const casinoTxs = transactions.filter(tx => tx.casino_id === casino.id);
+        const casinoRows = [['Date', 'Type', 'Amount']];
+        let dep = 0;
+        let with_ = 0;
+        casinoTxs.forEach(tx => {
+          const isDeposit = tx.type === 'deposit';
+          const amount = Number(tx.amount);
+          if (isDeposit) dep += amount; else with_ += amount;
+          casinoRows.push([
+            tx.date || '',
+            isDeposit ? 'Deposit' : 'Withdrawal',
+            `${isDeposit ? '-' : '+'}${currSymbol}${amount.toLocaleString()}`,
+          ]);
+        });
+        casinoRows.push([], ['Total Deposited', '', fmt(dep)]);
+        casinoRows.push(['Total Withdrawn', '', fmt(with_)]);
+        casinoRows.push(['Net Result', '', fmt(with_ - dep)]);
+
+        // Sheet names must be ≤31 chars and can't contain invalid chars
+        const sheetName = casino.name.replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31);
+        const ws = XLSX.utils.aoa_to_sheet(casinoRows);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+
+      // ── Download ──
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `casiflow-export-${dateStr}.xlsx`);
+    } catch (err) {
+      console.error('Export error:', err);
+      setExportError('Export failed. Please try again or contact support@casiflow.com.');
+    }
+    setExportLoading(false);
+  };
 
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm('Are you sure you want to delete your account? This cannot be undone.');
@@ -774,9 +882,12 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
               <div style={isMobile ? styles.dataRowMobile : styles.dataRow}>
                 <div>
                   <p style={styles.dataTitle}>Export My Data</p>
-                  <p style={styles.dataDesc}>Download all your transaction data as a CSV file. This is your right under GDPR.</p>
+                  <p style={styles.dataDesc}>Download all your Casiflow data as an Excel file.</p>
+                  {exportError && <p style={styles.exportError}>{exportError}</p>}
                 </div>
-                <button style={isMobile ? styles.exportBtnMobile : styles.exportBtn} onClick={handleExportCSV}>📥 Export CSV</button>
+                <button style={isMobile ? styles.exportBtnMobile : styles.exportBtn} onClick={handleExportXLSX} disabled={exportLoading}>
+                  {exportLoading ? '⏳ Generating...' : '📥 Export My Data'}
+                </button>
               </div>
               <div style={styles.divider} />
               <div style={isMobile ? styles.dataRowMobile : styles.dataRow}>
@@ -857,6 +968,7 @@ const styles = {
   dataRowMobile: { display: 'flex', flexDirection: 'column', padding: '12px 0', gap: '10px' },
   dataTitle: { color: '#1e293b', fontSize: '14px', fontWeight: '600', margin: '0 0 4px 0' },
   dataDesc: { color: '#64748b', fontSize: '13px', margin: 0 },
+  exportError: { color: '#dc2626', fontSize: '13px', marginTop: '6px' },
   exportBtn: { padding: '10px 16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 },
   exportBtnMobile: { width: '100%', padding: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' },
   deleteBtn: { padding: '10px 16px', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 },
