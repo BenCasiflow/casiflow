@@ -88,6 +88,7 @@ function Login() {
               <p style={styles.mobileBrandTagline}>Because the house always knows its numbers. Now you can too.</p>
             </div>
           )}
+          <a href="https://www.casiflow.com" target="_blank" rel="noopener noreferrer" style={styles.backLink}>← Back to casiflow.com</a>
           <h2 style={styles.formTitle}>Welcome back</h2>
           <p style={styles.formSubtitle}>Log in to your Casiflow account</p>
           {error && <div style={styles.errorBox}>{error}</div>}
@@ -146,6 +147,7 @@ const styles = {
   mobileHeader: { textAlign: 'center', marginBottom: '28px', paddingBottom: '24px', borderBottom: '1px solid #f1f5f9' },
   mobileBrandName: { color: '#0ea5e9', fontSize: '32px', fontWeight: '800', margin: '0 0 8px 0', letterSpacing: '-1px' },
   mobileBrandTagline: { color: '#64748b', fontSize: '14px', lineHeight: '1.5', margin: 0 },
+  backLink: { display: 'inline-block', color: '#38bdf8', fontSize: '13px', textDecoration: 'none', marginBottom: '16px' },
   formTitle: { color: '#0f172a', fontSize: '22px', fontWeight: '800', margin: '0 0 6px 0' },
   formSubtitle: { color: '#64748b', fontSize: '14px', margin: '0 0 24px 0' },
   errorBox: { backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: '8px', fontSize: '14px', marginBottom: '16px' },

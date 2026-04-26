@@ -342,6 +342,7 @@ function Signup({ onSignupComplete }) {
       {/* ── Right panel ── */}
       <div style={isMobile ? styles.rightPanelMobile : styles.rightPanel}>
         <div style={isMobile ? styles.formCardMobile : styles.formCard}>
+          <a href="https://www.casiflow.com" target="_blank" rel="noopener noreferrer" style={styles.backLink}>← Back to casiflow.com</a>
           <h2 style={styles.formTitle}>Create your free account</h2>
           <p style={styles.formSubtitle}>Always free to use — takes less than 2 minutes</p>
 
@@ -524,6 +525,7 @@ const styles = {
   formCard: { backgroundColor: 'white', borderRadius: '16px', padding: '36px', width: '100%', maxWidth: '560px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' },
   formCardMobile: { backgroundColor: 'white', borderRadius: '20px', padding: '28px 24px', width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)', marginBottom: '24px' },
 
+  backLink: { display: 'inline-block', color: '#38bdf8', fontSize: '13px', textDecoration: 'none', marginBottom: '16px' },
   formTitle: { color: '#0f172a', fontSize: '22px', fontWeight: '800', margin: '0 0 6px 0' },
   formSubtitle: { color: '#64748b', fontSize: '14px', margin: '0 0 20px 0' },
 
