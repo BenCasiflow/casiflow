@@ -384,7 +384,7 @@ function Profile({ user, profile, onLogout, onUpdateProfile }) {
         casinoRows.push(['Net Result', '', fmt(with_ - dep + casinoBalance), '']);
 
         // Sheet names must be ≤31 chars and can't contain invalid chars
-        const sheetName = (casino.casino_name || 'Casino').replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31);
+        const sheetName = (casino.casino_name || 'Casino').replace(/[:\\/.*?[\]]/g, '').slice(0, 31);
         const ws = XLSX.utils.aoa_to_sheet(casinoRows);
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
       });
